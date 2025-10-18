@@ -56,6 +56,7 @@ const MedicineItems: React.FC = () => {
 
   const fetchMedicines = async () => {
     setLoading(true);
+    console.log('Fetching medicines for hospital:', hospitalConfig.fullName);
     const { data, error } = await supabase
       .from('medicine_master')
       .select(`
@@ -75,6 +76,10 @@ const MedicineItems: React.FC = () => {
       });
       setMedicines([]);
     } else {
+      console.log('Fetched medicines:', data?.length, 'records');
+      if (data && data.length > 0) {
+        console.log('Sample medicine hospital_name values:', data.map(m => ({ name: m.medicine_name, hospital: m.hospital_name })));
+      }
       setMedicines(data || []);
     }
     setLoading(false);
@@ -82,7 +87,7 @@ const MedicineItems: React.FC = () => {
 
   useEffect(() => {
     fetchMedicines();
-  }, []);
+  }, [hospitalConfig.fullName]);
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete ${name}?`)) {
