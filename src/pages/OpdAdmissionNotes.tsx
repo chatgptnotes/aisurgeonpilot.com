@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, Printer, Loader2, FileText } from 'lucide-react';
+import { ArrowLeft, Save, Printer, Loader2, FileText, Mic, Download, RefreshCw } from 'lucide-react';
 import { useDebounce } from 'use-debounce';
 import { useToast } from '@/hooks/use-toast';
 
@@ -57,6 +57,13 @@ const OpdAdmissionNotes = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+
+  // Voice agent conversation state
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationStatus, setConversationStatus] = useState<'idle' | 'listening' | 'active' | 'completed'>('idle');
+  const [aiSummary, setAiSummary] = useState<string>('');
+  const [isProcessingSummary, setIsProcessingSummary] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<OpdAdmissionNotesData>({
@@ -77,6 +84,90 @@ const OpdAdmissionNotes = () => {
 
   // Debounce form data for auto-save
   const [debouncedFormData] = useDebounce(formData, 1500);
+
+  // Load ElevenLabs ConvAI script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+    script.async = true;
+    script.type = 'text/javascript';
+
+    script.onload = () => {
+      setScriptLoaded(true);
+      console.log('ElevenLabs ConvAI script loaded successfully');
+
+      // Wait for the widget to initialize and then add event listeners
+      setTimeout(() => {
+        // Check if ElevenLabs ConvAI widget is available
+        const convaiWidget = document.querySelector('elevenlabs-convai');
+
+        if (convaiWidget) {
+          console.log('ConvAI widget found, setting up event listeners');
+
+          // Listen for conversation events on the widget itself
+          convaiWidget.addEventListener('conversationStarted', (event: any) => {
+            console.log('Conversation started:', event.detail);
+            setConversationId(event.detail?.conversationId || Date.now().toString());
+            setConversationStatus('listening');
+            toast({
+              title: "ANOHRA Activated",
+              description: "Voice assistant is now listening to the conversation.",
+            });
+          });
+
+          convaiWidget.addEventListener('conversationEnded', (event: any) => {
+            console.log('Conversation ended:', event.detail);
+            setConversationStatus('completed');
+            toast({
+              title: "Conversation Complete",
+              description: "Use 'Capture Summary' to extract ANOHRA's notes.",
+            });
+          });
+
+          convaiWidget.addEventListener('agentSpeaking', () => {
+            setConversationStatus('active');
+          });
+
+          convaiWidget.addEventListener('userSpeaking', () => {
+            setConversationStatus('listening');
+          });
+
+          // Alternative: Check for global ElevenLabs events
+          if (window.ElevenLabs) {
+            console.log('ElevenLabs SDK available');
+          }
+        } else {
+          console.log('ConvAI widget not found, will retry...');
+          // Retry after another delay
+          setTimeout(() => {
+            const retryWidget = document.querySelector('elevenlabs-convai');
+            if (retryWidget) {
+              console.log('ConvAI widget found on retry');
+              // Add the same event listeners here
+            }
+          }, 2000);
+        }
+      }, 1000);
+    };
+
+    script.onerror = () => {
+      console.error('Failed to load ElevenLabs ConvAI script');
+      toast({
+        title: "Voice Assistant Error",
+        description: "Failed to load voice assistant. Please refresh the page.",
+        variant: "destructive",
+      });
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup script when component unmounts
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
+    };
+  }, [toast]);
 
   // Fetch patient and visit data
   useEffect(() => {
@@ -225,6 +316,325 @@ const OpdAdmissionNotes = () => {
     window.print();
   };
 
+  // Function to fetch conversation data from ElevenLabs
+  const fetchConversationData = async (conversationId: string) => {
+    try {
+      const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+
+      if (!apiKey) {
+        throw new Error('ElevenLabs API key not configured');
+      }
+
+      console.log('Fetching conversation data for ID:', conversationId);
+      console.log('Using API Key:', apiKey ? 'API Key is set' : 'API Key is missing');
+
+      // Try multiple possible API endpoints
+      const endpoints = [
+        `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`,
+        `https://api.elevenlabs.io/v1/conversations/${conversationId}`,
+        `https://api.elevenlabs.io/v1/convai/conversation/${conversationId}`,
+      ];
+
+      let lastError = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log('Trying endpoint:', endpoint);
+
+          const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              'xi-api-key': apiKey,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          console.log('Response status:', response.status);
+          console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+          if (response.ok) {
+            const conversationData = await response.json();
+            console.log('Conversation data received:', conversationData);
+            return conversationData;
+          } else {
+            const errorText = await response.text();
+            console.error(`API Error for ${endpoint}:`, response.status, errorText);
+            lastError = `${endpoint}: ${response.status} - ${errorText}`;
+          }
+        } catch (endpointError) {
+          console.error(`Network error for ${endpoint}:`, endpointError);
+          lastError = `${endpoint}: ${endpointError.message}`;
+        }
+      }
+
+      throw new Error(`All API endpoints failed. Last error: ${lastError}`);
+    } catch (error) {
+      console.error('Error fetching conversation data:', error);
+      throw error;
+    }
+  };
+
+  // Function to parse AI summary and populate form fields
+  const parseAndPopulateSummary = (summary: string) => {
+    try {
+      // Parse the AI-generated summary and extract relevant sections
+      const sections = {
+        diagnosis: '',
+        complaints: '',
+        vitals: '',
+        advice: '',
+        rx: '',
+        procedures: '',
+        pathology_rbs: '',
+        pathology_xray: '',
+        pathology_ct_mri_usg: '',
+        dressing: '',
+        stitch_removal: '',
+        doctor_signature: '',
+      };
+
+      // Simple parsing logic - you can enhance this based on ANOHRA's output format
+      const lines = summary.split('\n').map(line => line.trim()).filter(Boolean);
+
+      let currentSection = '';
+      let currentContent = '';
+
+      for (const line of lines) {
+        if (line.toLowerCase().includes('diagnosis') || line.toLowerCase().includes('condition')) {
+          if (currentSection && currentContent) {
+            sections[currentSection] = currentContent.trim();
+          }
+          currentSection = 'diagnosis';
+          currentContent = line.replace(/^[^:]*:?\s*/, '');
+        } else if (line.toLowerCase().includes('complaint') || line.toLowerCase().includes('symptom')) {
+          if (currentSection && currentContent) {
+            sections[currentSection] = currentContent.trim();
+          }
+          currentSection = 'complaints';
+          currentContent = line.replace(/^[^:]*:?\s*/, '');
+        } else if (line.toLowerCase().includes('vital') || line.toLowerCase().includes('bp') || line.toLowerCase().includes('blood pressure')) {
+          if (currentSection && currentContent) {
+            sections[currentSection] = currentContent.trim();
+          }
+          currentSection = 'vitals';
+          currentContent = line.replace(/^[^:]*:?\s*/, '');
+        } else if (line.toLowerCase().includes('advice') || line.toLowerCase().includes('recommendation')) {
+          if (currentSection && currentContent) {
+            sections[currentSection] = currentContent.trim();
+          }
+          currentSection = 'advice';
+          currentContent = line.replace(/^[^:]*:?\s*/, '');
+        } else if (line.toLowerCase().includes('prescription') || line.toLowerCase().includes('medication') || line.toLowerCase().includes('rx')) {
+          if (currentSection && currentContent) {
+            sections[currentSection] = currentContent.trim();
+          }
+          currentSection = 'rx';
+          currentContent = line.replace(/^[^:]*:?\s*/, '');
+        } else if (line.toLowerCase().includes('procedure')) {
+          if (currentSection && currentContent) {
+            sections[currentSection] = currentContent.trim();
+          }
+          currentSection = 'procedures';
+          currentContent = line.replace(/^[^:]*:?\s*/, '');
+        } else if (currentSection) {
+          currentContent += ' ' + line;
+        }
+      }
+
+      // Handle the last section
+      if (currentSection && currentContent) {
+        sections[currentSection] = currentContent.trim();
+      }
+
+      // Update form data with parsed sections
+      setFormData(prev => ({
+        ...prev,
+        diagnosis: sections.diagnosis || prev.diagnosis,
+        relevance_complaints: sections.complaints || prev.relevance_complaints,
+        vital_bp: sections.vitals || prev.vital_bp,
+        advice: sections.advice || prev.advice,
+        rx: sections.rx || prev.rx,
+        speciality_injectable: sections.procedures || prev.speciality_injectable,
+      }));
+
+      toast({
+        title: "Summary Applied",
+        description: "ANOHRA's summary has been populated into the form fields.",
+      });
+
+    } catch (error) {
+      console.error('Error parsing summary:', error);
+      toast({
+        title: "Parsing Error",
+        description: "Failed to parse ANOHRA's summary. Please review manually.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to handle conversation completion
+  const handleConversationComplete = async () => {
+    if (!conversationId) {
+      toast({
+        title: "No Conversation",
+        description: "No conversation ID available to fetch summary.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessingSummary(true);
+
+    try {
+      // Wait a moment for the conversation to be processed on ElevenLabs servers
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      console.log('Fetching conversation data for ID:', conversationId);
+      const conversationData = await fetchConversationData(conversationId);
+
+      console.log('Full conversation data:', conversationData);
+
+      // Look for the AI summary in different possible locations
+      let summaryContent = '';
+
+      if (conversationData) {
+        // Check for messages array
+        if (conversationData.messages && Array.isArray(conversationData.messages)) {
+          // Find the last assistant message that contains a summary
+          const assistantMessages = conversationData.messages.filter(
+            (msg: any) => msg.role === 'assistant' && msg.content
+          );
+
+          if (assistantMessages.length > 0) {
+            const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
+            summaryContent = lastAssistantMessage.content;
+            console.log('Found assistant message:', summaryContent);
+          }
+        }
+
+        // Alternative: Check for transcript or summary fields
+        if (!summaryContent && conversationData.transcript) {
+          summaryContent = conversationData.transcript;
+          console.log('Found transcript:', summaryContent);
+        }
+
+        if (!summaryContent && conversationData.summary) {
+          summaryContent = conversationData.summary;
+          console.log('Found summary field:', summaryContent);
+        }
+
+        // Extract summary from conversation text if needed
+        if (!summaryContent && conversationData.conversation_text) {
+          // Look for structured summary in the conversation text
+          const conversationText = conversationData.conversation_text;
+          const summaryMatch = conversationText.match(/(?:summary|opd summary|consultation summary)[:\s]*([\s\S]*)/i);
+          if (summaryMatch) {
+            summaryContent = summaryMatch[1].trim();
+            console.log('Extracted summary from conversation text:', summaryContent);
+          } else {
+            summaryContent = conversationText;
+          }
+        }
+      }
+
+      if (summaryContent) {
+        setAiSummary(summaryContent);
+        parseAndPopulateSummary(summaryContent);
+
+        toast({
+          title: "Summary Captured",
+          description: "ANOHRA's summary has been extracted and populated into the form.",
+        });
+      } else {
+        console.warn('No summary content found in conversation data');
+        toast({
+          title: "No Summary Found",
+          description: "Could not extract summary from conversation. The conversation may still be processing.",
+          variant: "destructive",
+        });
+      }
+
+    } catch (error) {
+      console.error('Error processing conversation:', error);
+      toast({
+        title: "Processing Error",
+        description: `Failed to retrieve ANOHRA's summary: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingSummary(false);
+    }
+  };
+
+  // Function to manually trigger summary capture
+  const captureCurrentSummary = () => {
+    if (conversationId) {
+      handleConversationComplete();
+    } else {
+      // If no conversation ID, try to simulate or provide manual input
+      toast({
+        title: "No Active Conversation",
+        description: "Start a conversation with ANOHRA first, or use the manual summary input.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Test function to simulate a conversation (for development/testing)
+  const simulateConversation = () => {
+    const mockSummary = `
+CONSULTATION SUMMARY
+
+DIAGNOSIS: Hypertension with Type 2 Diabetes Mellitus
+Patient presents with elevated blood pressure readings and blood glucose levels.
+
+COMPLAINTS:
+Patient reports frequent headaches, fatigue, and excessive thirst for the past 2 weeks.
+Also experiencing blurred vision occasionally.
+
+VITALS:
+BP: 150/95 mmHg
+Pulse: 88/min
+Temperature: 98.6°F
+Weight: 75 kg
+
+PRESCRIPTION:
+1. Amlodipine 5mg - Once daily after breakfast
+2. Metformin 500mg - Twice daily before meals
+3. Aspirin 75mg - Once daily after dinner
+
+ADVICE:
+- Regular blood pressure monitoring
+- Diabetic diet with reduced carbohydrates
+- Daily 30-minute walk
+- Follow-up after 2 weeks
+
+PROCEDURES:
+Blood glucose testing performed
+Blood pressure monitoring
+    `;
+
+    setAiSummary(mockSummary);
+    setConversationId('simulated-' + Date.now());
+    setConversationStatus('completed');
+    parseAndPopulateSummary(mockSummary);
+
+    toast({
+      title: "Test Summary Applied",
+      description: "Simulated ANOHRA summary has been populated for testing.",
+    });
+  };
+
+  // Function to manually input conversation ID
+  const handleManualConversationId = () => {
+    const conversationIdInput = prompt('Enter the conversation ID to fetch summary from:');
+    if (conversationIdInput && conversationIdInput.trim()) {
+      setConversationId(conversationIdInput.trim());
+      setConversationStatus('completed');
+      handleConversationComplete();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -287,6 +697,26 @@ const OpdAdmissionNotes = () => {
               Saving...
             </div>
           )}
+          {conversationStatus !== 'idle' && (
+            <Button
+              onClick={captureCurrentSummary}
+              disabled={isProcessingSummary || !conversationId}
+              variant="outline"
+              className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
+            >
+              {isProcessingSummary ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  Capture ANOHRA Summary
+                </>
+              )}
+            </Button>
+          )}
           <Button
             onClick={handleManualSave}
             disabled={saving}
@@ -309,12 +739,161 @@ const OpdAdmissionNotes = () => {
       {/* Main Form */}
       <Card className="shadow-lg">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 print:bg-white">
+          {/* Voice Agent Widget - Hidden in print */}
+          <div className="print:hidden mb-4 p-4 bg-white rounded-lg border border-blue-200 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className={`w-3 h-3 rounded-full animate-pulse ${scriptLoaded ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                  <div className={`absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-75 ${scriptLoaded ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                </div>
+                <Mic className="h-5 w-5 text-blue-600" />
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-800">ANOHRA Voice Assistant</h3>
+                  <p className="text-xs text-gray-600">
+                    {scriptLoaded ? 'Ready to assist with consultation documentation' : 'Loading voice assistant...'}
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                Say "ANOHRA" to activate
+              </div>
+            </div>
+
+            {/* Conversation Status */}
+            <div className="bg-blue-50 p-3 rounded-lg mb-3">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-semibold text-blue-800">Conversation Status:</h4>
+                <div className={`text-xs px-2 py-1 rounded-full ${
+                  conversationStatus === 'idle' ? 'bg-gray-200 text-gray-700' :
+                  conversationStatus === 'listening' ? 'bg-yellow-200 text-yellow-800' :
+                  conversationStatus === 'active' ? 'bg-green-200 text-green-800' :
+                  'bg-blue-200 text-blue-800'
+                }`}>
+                  {conversationStatus === 'idle' && 'Ready'}
+                  {conversationStatus === 'listening' && 'Listening...'}
+                  {conversationStatus === 'active' && 'Active'}
+                  {conversationStatus === 'completed' && 'Completed'}
+                </div>
+              </div>
+
+              {conversationStatus === 'idle' && (
+                <ol className="text-xs text-blue-700 space-y-1">
+                  <li>1. Start your patient consultation normally</li>
+                  <li>2. ANOHRA listens silently to the conversation</li>
+                  <li>3. When finished, say "ANOHRA" to activate</li>
+                  <li>4. Answer ANOHRA's 3 clarifying questions</li>
+                  <li>5. Use "Capture Summary" to populate notes</li>
+                </ol>
+              )}
+
+              {conversationStatus === 'completed' && aiSummary && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-green-700 font-medium">✓ Summary Generated</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={captureCurrentSummary}
+                      disabled={isProcessingSummary}
+                      className="h-6 px-2 text-xs"
+                    >
+                      {isProcessingSummary ? (
+                        <>
+                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-3 w-3 mr-1" />
+                          Capture Summary
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="bg-white p-2 rounded border text-xs text-gray-700 max-h-20 overflow-y-auto">
+                    {aiSummary.substring(0, 150)}...
+                  </div>
+                </div>
+              )}
+
+              {/* Debug/Testing Controls */}
+              <div className="mt-3 pt-3 border-t border-blue-200">
+                <p className="text-xs text-blue-800 font-medium mb-2">Debug Controls:</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={simulateConversation}
+                    className="h-6 px-2 text-xs bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-700"
+                  >
+                    Test Summary
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleManualConversationId}
+                    className="h-6 px-2 text-xs bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700"
+                  >
+                    Manual ID Input
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const envVars = {
+                        VITE_ELEVENLABS_API_KEY: import.meta.env.VITE_ELEVENLABS_API_KEY ? 'Set' : 'Missing',
+                        VITE_ELEVENLABS_AGENT_ID: import.meta.env.VITE_ELEVENLABS_AGENT_ID ? 'Set' : 'Missing',
+                      };
+                      console.log('Environment Variables:', envVars);
+                      console.log('Current state:', {
+                        conversationId,
+                        conversationStatus,
+                        scriptLoaded,
+                        aiSummary: aiSummary.substring(0, 100)
+                      });
+                      toast({
+                        title: "Debug Info Logged",
+                        description: "Check browser console for environment and state details.",
+                      });
+                    }}
+                    className="h-6 px-2 text-xs bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700"
+                  >
+                    Debug Info
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* ElevenLabs Voice Widget */}
+            <div className="flex justify-center bg-gray-50 p-3 rounded-lg">
+              {scriptLoaded ? (
+                <elevenlabs-convai agent-id={import.meta.env.VITE_ELEVENLABS_AGENT_ID}></elevenlabs-convai>
+              ) : (
+                <div className="text-center text-gray-500">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                  <p className="text-xs">Loading voice assistant...</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="flex items-center gap-3">
             <FileText className="h-8 w-8 text-blue-600" />
-            <div>
-              <CardTitle className="text-2xl font-bold text-blue-900">
-                ADMISSION NOTES
-              </CardTitle>
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <CardTitle className="text-2xl font-bold text-blue-900">
+                  NOTES
+                </CardTitle>
+                {/* Pulsating mic icon next to header */}
+                <div className="flex items-center gap-2 print:hidden">
+                  <div className="relative">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <div className="absolute inset-0 w-2 h-2 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                  </div>
+                  <Mic className="h-4 w-4 text-gray-600" />
+                </div>
+              </div>
               <p className="text-sm text-gray-600 mt-1">
                 Visit ID: {patientData.visit_id} | Date: {formatDate(patientData.created_at)}
               </p>
@@ -372,13 +951,13 @@ const OpdAdmissionNotes = () => {
             />
           </div>
 
-          {/* Relevance Complaints */}
+          {/* Complaints */}
           <div className="space-y-2">
-            <Label className="text-lg font-semibold text-gray-800">Relevance Complaints</Label>
+            <Label className="text-lg font-semibold text-gray-800">Complaints</Label>
             <Textarea
               value={formData.relevance_complaints}
               onChange={(e) => handleInputChange('relevance_complaints', e.target.value)}
-              placeholder="Enter relevance complaints..."
+              placeholder="Enter complaints..."
               className="min-h-[80px] resize-vertical print:border-gray-400"
             />
           </div>
@@ -387,18 +966,15 @@ const OpdAdmissionNotes = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print-two-column">
             {/* Left Column: Vital, Advice, Pathology */}
             <div className="space-y-6">
-              {/* Vital */}
+              {/* Vitals */}
               <div className="space-y-2">
-                <Label className="text-lg font-semibold text-gray-800">Vital</Label>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">B.P.</Label>
-                  <Input
-                    value={formData.vital_bp}
-                    onChange={(e) => handleInputChange('vital_bp', e.target.value)}
-                    placeholder="e.g., 120/80 mmHg"
-                    className="print:border-gray-400"
-                  />
-                </div>
+                <Label className="text-lg font-semibold text-gray-800">Vitals</Label>
+                <Input
+                  value={formData.vital_bp}
+                  onChange={(e) => handleInputChange('vital_bp', e.target.value)}
+                  placeholder="e.g., BP: 120/80 mmHg, Pulse: 72/min, Temp: 98.6°F"
+                  className="print:border-gray-400"
+                />
               </div>
 
               {/* Advice */}
@@ -446,13 +1022,13 @@ const OpdAdmissionNotes = () => {
                 </div>
               </div>
 
-              {/* Stitches Removal */}
+              {/* Stitch Removal */}
               <div className="space-y-2">
-                <Label className="text-lg font-semibold text-gray-800">Stitches Removal</Label>
+                <Label className="text-lg font-semibold text-gray-800">Stitch Removal</Label>
                 <Input
                   value={formData.stitches_removal}
                   onChange={(e) => handleInputChange('stitches_removal', e.target.value)}
-                  placeholder="Stitches removal details"
+                  placeholder="Stitch removal details"
                   className="print:border-gray-400"
                 />
               </div>
@@ -468,13 +1044,13 @@ const OpdAdmissionNotes = () => {
                 />
               </div>
 
-              {/* Speciality Injectable */}
+              {/* Procedures */}
               <div className="space-y-2">
-                <Label className="text-lg font-semibold text-gray-800">Speciality Injectable</Label>
+                <Label className="text-lg font-semibold text-gray-800">Procedures</Label>
                 <Input
                   value={formData.speciality_injectable}
                   onChange={(e) => handleInputChange('speciality_injectable', e.target.value)}
-                  placeholder="Speciality injectable details"
+                  placeholder="Procedures performed"
                   className="print:border-gray-400"
                 />
               </div>

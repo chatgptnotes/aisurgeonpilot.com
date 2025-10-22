@@ -366,7 +366,7 @@ const LabOrders = () => {
       }
 
       // Process multiple test configs if available
-      let allSubTests = [];
+      const allSubTests = [];
       for (const config of labConfigData) {
         allSubTests.push({
           name: config.sub_test_name,
@@ -687,7 +687,7 @@ const LabOrders = () => {
           });
 
           // Load existing lab results for this visit
-          let { data: existingResults, error } = await supabase
+          const { data: existingResults, error } = await supabase
             .from('lab_results')
             .select('*')
             .eq('visit_id', visitId)
@@ -2396,7 +2396,7 @@ const LabOrders = () => {
     });
 
     // Try to get visit ID from multiple sources
-    let visitIdToQuery = firstTest?.visit_id || firstTest?.order_id;
+    const visitIdToQuery = firstTest?.visit_id || firstTest?.order_id;
 
     console.log('🔍 DEBUG: Will query with visitId:', visitIdToQuery);
 
@@ -2698,8 +2698,8 @@ const LabOrders = () => {
               console.log('📋 Relevant keys for test', testRow.test_name, ':', relevantKeys);
 
               // Try both sub-tests approach and direct key approach
-              let hasSubTestData = subTests.length > 0;
-              let hasDirectData = relevantKeys.length > 0;
+              const hasSubTestData = subTests.length > 0;
+              const hasDirectData = relevantKeys.length > 0;
 
               console.log('📊 Has sub-test data:', hasSubTestData, 'Has direct data:', hasDirectData);
 

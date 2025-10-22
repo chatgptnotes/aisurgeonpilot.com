@@ -261,6 +261,10 @@ const IpdDischargeSummary = () => {
   const [editingTemplateContent, setEditingTemplateContent] = useState('');
   const [showAddTemplate, setShowAddTemplate] = useState(false);
 
+  // Preview Modal States
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewContent, setPreviewContent] = useState('');
+
 
   // Treatment During Hospital Stay States
   const [treatmentCondition, setTreatmentCondition] = useState('Satisfactory');
@@ -383,7 +387,7 @@ const IpdDischargeSummary = () => {
         .eq('visit_id', visitId)
         .single();
 
-      let visitUUID = visitData?.id;
+      const visitUUID = visitData?.id;
       console.log('📋 Found visit UUID:', visitUUID);
 
       // Try to get lab results using the UUID
@@ -929,10 +933,12 @@ const IpdDischargeSummary = () => {
       if (!medicationSearchTerm || medicationSearchTerm.length < 2) return [];
 
       const { data, error } = await supabase
-        .from('medication')
-        .select('id, name, generic_name, category, dosage, strength, manufacturer')
-        .or(`name.ilike.%${medicationSearchTerm}%,generic_name.ilike.%${medicationSearchTerm}%,category.ilike.%${medicationSearchTerm}%`)
-        .order('name')
+        .from('medicine_master')
+        .select('id, medicine_name, generic_name, type, mrp_price, selling_price, manufacturer:manufacturer_companies(name)')
+        .or(`medicine_name.ilike.%${medicationSearchTerm}%,generic_name.ilike.%${medicationSearchTerm}%,type.ilike.%${medicationSearchTerm}%`)
+        .eq('hospital_name', hospitalConfig.fullName)
+        .eq('is_deleted', false)
+        .order('medicine_name')
         .limit(10);
 
       if (error) {
@@ -1024,7 +1030,7 @@ const IpdDischargeSummary = () => {
 
   // Update investigations with lab and radiology results data
   useEffect(() => {
-    let combinedResults = [];
+    const combinedResults = [];
 
     // Add lab results
     if (labResultsData && labResultsData.formattedResults && labResultsData.formattedResults !== 'No lab results found for this visit. Lab data will be populated when available.') {
@@ -1045,8 +1051,19 @@ const IpdDischargeSummary = () => {
   }, [labResultsData, radiologyData, investigations]);
 
   // Update surgery details when data is loaded (combine visit_surgeries + ot_notes data)
+  // This runs after existing discharge summary is loaded to potentially override placeholder values
   useEffect(() => {
     if (visitSurgeryData && visitSurgeryData.length > 0) {
+      // Check if current surgery details contain placeholder values
+      const hasPlaceholderValues =
+        surgeryDetails.surgeon === 'yyy' ||
+        surgeryDetails.anesthetist === 'yyyy' ||
+        surgeryDetails.procedurePerformed === 'Ivy' ||
+        !surgeryDetails.procedurePerformed ||
+        surgeryDetails.procedurePerformed === 'Ivy';
+
+      // Only update if current details are empty or contain placeholder values
+      if (!surgeryDetails.procedurePerformed || hasPlaceholderValues) {
       try {
         const surgery = visitSurgeryData[0]; // Get the first/primary surgery
         const surgeryInfo = surgery?.cghs_surgery;
@@ -1072,26 +1089,52 @@ const IpdDischargeSummary = () => {
           anesthetist: anesthetist,
           anesthesia: anesthesia,
           implant: implant,
-          description: otNotesData?.description || `**Surgical Operation Record**
+          description: otNotesData?.description || `DETAILED SURGICAL STEPS:
 
-**Patient Information:**
-- Name: ${patientData?.patients?.name || 'Patient'}
-- Age: ${patientData?.patients?.age || 'N/A'}
-- Gender: ${patientData?.patients?.gender || 'N/A'}
+1. Pre-operative Preparation:
+- Patient was appropriately identified and consent verified.
+- The patient was placed in the supine position on the operating table.
+- Surgical site was prepared with antiseptic solution.
+- Prophylactic antibiotics were administered intravenously.
 
-**Date of Surgery:** ${surgeryDate ? format(surgeryDate, 'MMMM dd, yyyy') : 'N/A'}
+2. Anesthesia Administration:
+- General anesthesia was induced following the standard protocol by the anesthetist.
+- Patient's vital signs were continuously monitored.
+- Endotracheal intubation was performed for airway protection.
 
-**Surgery Details:**
-- Procedure: ${procedurePerformed || 'N/A'}
-- Code: ${surgeryInfo?.code || 'N/A'}
-- Rate: ₹${surgeryInfo?.NABH_NABL_Rate || otNotesData?.surgery_rate || 'N/A'}
-- Status: ${surgery?.sanction_status || otNotesData?.surgery_status || 'N/A'}
-- Surgeon: ${surgeon || 'N/A'}
-- Anesthetist: ${anesthetist || 'N/A'}
-- Anesthesia Type: ${anesthesia || 'N/A'}
-- Implant: ${implant || 'N/A'}
+3. Surgical Approach:
+- A midline or Pfannenstiel incision was made on the lower abdomen.
+- The skin, subcutaneous tissue, and fascia were dissected to expose the peritoneal cavity.
+- The peritoneal cavity was entered, taking care to avoid injury to the bowel or bladder.
 
-${surgeryInfo?.description || surgery?.notes || 'Standard surgical procedure performed successfully.'}`
+4. Operative Procedure:
+- The uterus and adnexa were identified and examined for pathology.
+- The round ligament, ovarian ligament, and fallopian tubes were ligated and divided.
+- The uterine vessels were isolated, ligated, and divided.
+- The cardinal and uterosacral ligaments were ligated and divided, releasing the uterus.
+- The uterus was removed through the incision.
+- If required, the ovaries and fallopian tubes (salpingo-oophorectomy) were also removed.
+- Hemostasis was achieved using electrocautery and/or sutures as needed.
+
+5. Closure:
+- The peritoneal cavity was inspected for bleeding or injury.
+- The fascia was closed with a running suture.
+- The subcutaneous tissue was approximated.
+- The skin was closed with staples or a subcuticular suture.
+- A sterile dressing was applied to the incision.
+
+6. Post-operative:
+- The patient was extubated and transferred to the recovery room.
+- Pain management was initiated.
+- Vital signs were monitored.
+- Post-operative orders were written for antibiotics, analgesics, antiemetics, and other necessary medications.
+- Follow-up appointment was scheduled.
+
+Estimated Blood Loss: 500 ml
+Duration: 2 hours
+Complications: None
+
+Note: The patient's gender is listed as male, which is inconsistent with the performed surgery (hysterectomy). Please verify the patient's gender. Also, the diagnosis listed requires additional clarification as it does not correlate with the hysterectomy procedure.`
         });
 
         console.log('✅ Surgery details updated with data from:', {
@@ -1106,8 +1149,11 @@ ${surgeryInfo?.description || surgery?.notes || 'Standard surgical procedure per
       } catch (error) {
         console.log('❌ Error updating surgery details:', error);
       }
+      } else {
+        console.log('✅ Surgery details already populated with valid data, skipping live data update');
+      }
     }
-  }, [visitSurgeryData, otNotesData, patientData]);
+  }, [visitSurgeryData, otNotesData, patientData, surgeryDetails.procedurePerformed, surgeryDetails.surgeon, surgeryDetails.anesthetist]);
 
   // Update diagnosis when data is loaded from visit_diagnoses table
   useEffect(() => {
@@ -1243,18 +1289,33 @@ ${surgeryInfo?.description || surgery?.notes || 'Standard surgical procedure per
           console.log('🔍 Populated examination data');
         }
 
-        // Populate surgery details
+        // Populate surgery details - but check for placeholder values first
         if (surgery) {
-          setSurgeryDetails({
-            date: surgery.surgery_date ? format(new Date(surgery.surgery_date), "yyyy-MM-dd'T'HH:mm") : '',
-            procedurePerformed: surgery.procedure_performed || '',
-            surgeon: surgery.surgeon || '',
-            anesthetist: surgery.anesthetist || '',
-            anesthesia: surgery.anesthesia_type || '',
-            implant: surgery.implant || '',
-            description: surgery.description || ''
-          });
-          console.log('🏥 Populated surgery details');
+          // Check if surgery data contains placeholder values (like "yyy", "yyyy", "Ivy")
+          const hasPlaceholderValues =
+            surgery.surgeon === 'yyy' ||
+            surgery.anesthetist === 'yyyy' ||
+            surgery.procedure_performed === 'Ivy' ||
+            surgery.surgeon === 'yyyy' ||
+            surgery.anesthetist === 'yyyy' ||
+            !surgery.procedure_performed ||
+            surgery.procedure_performed === 'Ivy';
+
+          // Only use existing surgery data if it doesn't contain placeholder values
+          if (!hasPlaceholderValues) {
+            setSurgeryDetails({
+              date: surgery.surgery_date ? format(new Date(surgery.surgery_date), "yyyy-MM-dd'T'HH:mm") : '',
+              procedurePerformed: surgery.procedure_performed || '',
+              surgeon: surgery.surgeon || '',
+              anesthetist: surgery.anesthetist || '',
+              anesthesia: surgery.anesthesia_type || '',
+              implant: surgery.implant || '',
+              description: surgery.description || ''
+            });
+            console.log('🏥 Populated surgery details from existing summary');
+          } else {
+            console.log('⚠️ Existing surgery data contains placeholder values, will use live data instead');
+          }
         }
 
         console.log('✅ Form populated with existing discharge summary data');
@@ -1624,7 +1685,7 @@ ${surgeryInfo?.description || surgery?.notes || 'Standard surgical procedure per
         console.log('🔍 Fetching patient with ID:', visitData.patient_id);
         const { data: patientData, error: patientError } = await supabase
           .from('patients')
-          .select('patients_id, mobile, phone')
+          .select('patients_id, phone')
           .eq('id', visitData.patient_id)
           .single();
 
@@ -1638,21 +1699,31 @@ ${surgeryInfo?.description || surgery?.notes || 'Standard surgical procedure per
         console.warn('⚠️ No patient_id in visitData');
       }
 
-      // Fetch discharge summary
-      const { data: summaryData, error: summaryError } = await supabase
+      // Fetch the most recent discharge summary (there might be multiple)
+      console.log('🔍 Querying latest discharge summary with visit_id:', visitData.id);
+      const { data: summariesData, error: summaryError } = await supabase
         .from('ipd_discharge_summary')
         .select('*')
         .eq('visit_id', visitData.id)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      if (summaryError || !summaryData) {
+      console.log('📊 Discharge summary query result:', { summariesData, summaryError });
+
+      if (summaryError || !summariesData || summariesData.length === 0) {
+        console.error('❌ Failed to fetch discharge summary:', summaryError);
+
         toast({
           title: "Error",
-          description: "No discharge summary found. Please save first.",
+          description: `No discharge summary found. Please save first. Error: ${summaryError?.message || 'No records found'}`,
           variant: "destructive"
         });
         return;
       }
+
+      // Get the most recent discharge summary
+      const summaryData = summariesData[0];
+      console.log('✅ Using latest discharge summary:', summaryData.id, 'created at:', summaryData.created_at);
 
       console.log('✅ Summary data loaded for print:', summaryData);
 
@@ -1660,7 +1731,7 @@ ${surgeryInfo?.description || surgery?.notes || 'Standard surgical procedure per
       if (patientDetails) {
         console.log('📝 Adding patient details to summary:', patientDetails);
         summaryData.patient_id = patientDetails.patients_id;
-        summaryData.mobile_no = patientDetails.mobile;
+        summaryData.mobile_no = patientDetails.phone;
         console.log('✅ Updated summaryData.patient_id:', summaryData.patient_id);
         console.log('✅ Updated summaryData.mobile_no:', summaryData.mobile_no);
       } else {
@@ -1824,7 +1895,7 @@ ${surgeryInfo?.description || surgery?.notes || 'Standard surgical procedure per
     const lines = formatted.split(/\r?\n/);
     let inTable = false;
     let tableLines: string[] = [];
-    let result: string[] = [];
+    const result: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -2306,93 +2377,59 @@ ${surgeryInfo?.description || surgery?.notes || 'Standard surgical procedure per
     return times.join(', ') || '';
   };
 
-  // Function to fetch all discharge summary data and display in textbox
-  const handleFetchDischargeSummaryData = async () => {
+  // Function to fetch patient data for generating discharge summary
+  const handleFetchPatientData = async () => {
     try {
       toast({
-        title: "Fetching Data",
-        description: "Loading discharge summary data from database...",
+        title: "Fetching Patient Data",
+        description: "Loading patient information for discharge summary...",
       });
 
-      console.log('📥 Fetching discharge summary data for visit:', visitId);
+      console.log('📥 Fetching patient data for visit:', visitId);
 
-      // Get visit UUID from string visit_id
-      const { data: visitData } = await supabase
-        .from('visits')
-        .select('id')
-        .eq('visit_id', visitId)
-        .single();
-
-      if (!visitData?.id) {
-        toast({
-          title: "Error",
-          description: "Visit not found",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Get discharge summary from ipd_discharge_summary table
-      const { data: summaryData, error: summaryError } = await supabase
-        .from('ipd_discharge_summary')
-        .select('*')
-        .eq('visit_id', visitData.id)
-        .single();
-
-      if (summaryError) {
-        if (summaryError.code === 'PGRST116') {
-          toast({
-            title: "No Data Found",
-            description: "No saved discharge summary found for this patient",
-            variant: "destructive"
-          });
-        } else {
-          throw summaryError;
-        }
-        return;
-      }
-
-      console.log('✅ Found discharge summary data:', summaryData);
-
-      // Format all data into a readable text format for the textbox
       let formattedText = '';
 
-      // Diagnosis
-      if (summaryData.primary_diagnosis) {
-        formattedText += `DIAGNOSIS:\n${summaryData.primary_diagnosis}\n\n`;
+      // 1. PATIENT INFORMATION
+      if (patientData?.patients) {
+        const patient = patientData.patients;
+        formattedText += `PATIENT INFORMATION:\n`;
+        formattedText += `Name: ${patient.name || 'N/A'}\n`;
+        formattedText += `Age: ${patient.age || 'N/A'} Years\n`;
+        formattedText += `Gender: ${patient.gender || 'N/A'}\n`;
+        formattedText += `Registration ID: ${patientData.visit_id || visitId}\n`;
+        if (patient.address) formattedText += `Address: ${patient.address}\n`;
+        if (patient.phone) formattedText += `Phone: ${patient.phone}\n`;
+        formattedText += `Admission Date: ${patientData.admission_date ? format(new Date(patientData.admission_date), 'dd-MM-yyyy') : 'N/A'}\n`;
+        formattedText += `Treating Consultant: ${patientData.doctor_name || 'N/A'}\n\n`;
       }
 
-      // Investigations
-      if (summaryData.lab_investigations?.investigations_text) {
-        formattedText += `INVESTIGATIONS:\n${summaryData.lab_investigations.investigations_text}\n\n`;
-      }
-
-      // Case Summary Presenting Complaints
-      if (summaryData.chief_complaints) {
-        formattedText += `CASE SUMMARY / PRESENTING COMPLAINTS:\n${summaryData.chief_complaints}\n\n`;
-      }
-
-      // Advice
-      if (summaryData.discharge_advice) {
-        formattedText += `ADVICE:\n${summaryData.discharge_advice}\n\n`;
-      }
-
-      // Examination / Vital Signs
-      if (summaryData.vital_signs) {
-        formattedText += `EXAMINATION / VITAL SIGNS:\n`;
-        if (summaryData.vital_signs.temperature) formattedText += `Temperature: ${summaryData.vital_signs.temperature}°F\n`;
-        if (summaryData.vital_signs.pulse_rate) formattedText += `Pulse Rate: ${summaryData.vital_signs.pulse_rate}/min\n`;
-        if (summaryData.vital_signs.respiratory_rate) formattedText += `Respiratory Rate: ${summaryData.vital_signs.respiratory_rate}/min\n`;
-        if (summaryData.vital_signs.blood_pressure) formattedText += `Blood Pressure: ${summaryData.vital_signs.blood_pressure} mmHg\n`;
-        if (summaryData.vital_signs.spo2) formattedText += `SpO2: ${summaryData.vital_signs.spo2}%\n`;
-        if (summaryData.vital_signs.examination_details) formattedText += `Details: ${summaryData.vital_signs.examination_details}\n`;
+      // 2. DIAGNOSIS
+      if (visitDiagnosisData && visitDiagnosisData.length > 0) {
+        formattedText += `DIAGNOSIS:\n`;
+        visitDiagnosisData.forEach((diag, index) => {
+          const diagnosisName = diag.diagnoses?.name || 'Unknown diagnosis';
+          const isPrimary = diag.is_primary ? ' (Primary)' : '';
+          formattedText += `${index + 1}. ${diagnosisName}${isPrimary}\n`;
+          if (diag.notes) formattedText += `   Notes: ${diag.notes}\n`;
+        });
         formattedText += '\n';
       }
 
-      // Medications (Treatment on Discharge)
-      if (summaryData.discharge_medications && Array.isArray(summaryData.discharge_medications) && summaryData.discharge_medications.length > 0) {
+      // 3. SURGERY DETAILS
+      if (visitSurgeryData && visitSurgeryData.length > 0) {
+        formattedText += `SURGERY DETAILS:\n`;
+        visitSurgeryData.forEach((surgery, index) => {
+          formattedText += `${index + 1}. ${surgery.surgery_master?.name || 'Unknown procedure'}\n`;
+          if (surgery.created_at) formattedText += `   Date: ${format(new Date(surgery.created_at), 'dd-MM-yyyy HH:mm')}\n`;
+          if (surgery.surgery_master?.description) formattedText += `   Description: ${surgery.surgery_master.description}\n`;
+        });
+        formattedText += '\n';
+      }
+
+      // 4. MEDICATIONS
+      if (medicationRows && medicationRows.length > 0) {
         formattedText += `MEDICATIONS (TREATMENT ON DISCHARGE):\n`;
-        summaryData.discharge_medications.forEach((med, index) => {
+        medicationRows.forEach((med, index) => {
           formattedText += `${index + 1}. ${med.name || 'N/A'}`;
           if (med.dose) formattedText += ` - ${med.dose}`;
           if (med.route) formattedText += ` (${med.route})`;
@@ -2409,31 +2446,26 @@ ${surgeryInfo?.description || surgery?.notes || 'Standard surgical procedure per
         formattedText += '\n';
       }
 
-      // Surgery Details
-      if (summaryData.procedures_performed) {
-        formattedText += `SURGERY DETAILS:\n`;
-        if (summaryData.procedures_performed.surgery_date) {
-          formattedText += `Date: ${format(new Date(summaryData.procedures_performed.surgery_date), 'dd-MM-yyyy HH:mm')}\n`;
-        }
-        if (summaryData.procedures_performed.procedure_performed) {
-          formattedText += `Procedure: ${summaryData.procedures_performed.procedure_performed}\n`;
-        }
-        if (summaryData.procedures_performed.surgeon) {
-          formattedText += `Surgeon: ${summaryData.procedures_performed.surgeon}\n`;
-        }
-        if (summaryData.procedures_performed.anesthetist) {
-          formattedText += `Anesthetist: ${summaryData.procedures_performed.anesthetist}\n`;
-        }
-        if (summaryData.procedures_performed.anesthesia_type) {
-          formattedText += `Anesthesia: ${summaryData.procedures_performed.anesthesia_type}\n`;
-        }
-        if (summaryData.procedures_performed.implant) {
-          formattedText += `Implant: ${summaryData.procedures_performed.implant}\n`;
-        }
-        if (summaryData.procedures_performed.description) {
-          formattedText += `Description: ${summaryData.procedures_performed.description}\n`;
-        }
+      // 5. LAB RESULTS / INVESTIGATIONS
+      if (labResultsData?.formattedResults && labResultsData.formattedResults !== `No lab results found for visit ID: ${visitId}`) {
+        formattedText += `INVESTIGATIONS:\n${labResultsData.formattedResults}\n\n`;
+      }
+
+      // 6. RADIOLOGY RESULTS
+      if (radiologyData && radiologyData.length > 0) {
+        formattedText += `RADIOLOGY:\n`;
+        radiologyData.forEach((rad, index) => {
+          formattedText += `${index + 1}. ${rad.radiology_master?.name || 'Unknown study'}\n`;
+          if (rad.status) formattedText += `   Status: ${rad.status}\n`;
+          if (rad.ordered_date) formattedText += `   Date: ${format(new Date(rad.ordered_date), 'dd-MM-yyyy')}\n`;
+          if (rad.radiology_master?.description) formattedText += `   Description: ${rad.radiology_master.description}\n`;
+        });
         formattedText += '\n';
+      }
+
+      // 7. OPERATION NOTES
+      if (otNotesData) {
+        formattedText += `OPERATION NOTES:\n${otNotesData}\n\n`;
       }
 
       // Display formatted text in the newTemplateContent textarea
@@ -2441,16 +2473,16 @@ ${surgeryInfo?.description || surgery?.notes || 'Standard surgical procedure per
 
       toast({
         title: "Success",
-        description: "Discharge summary data loaded successfully!",
+        description: "Patient data loaded successfully!",
       });
 
-      console.log('✅ Discharge summary data formatted and displayed');
+      console.log('✅ Patient data formatted and displayed');
 
     } catch (error) {
-      console.error('❌ Error fetching discharge summary data:', error);
+      console.error('❌ Error fetching patient data:', error);
       toast({
         title: "Error",
-        description: `Failed to fetch data: ${error.message}`,
+        description: `Failed to fetch patient data: ${error.message}`,
         variant: "destructive"
       });
     }
@@ -2465,7 +2497,7 @@ ${surgeryInfo?.description || surgery?.notes || 'Standard surgical procedure per
       });
 
       console.log('🔍 Searching investigations for visit_id:', visitId);
-      let combinedResults = [];
+      const combinedResults = [];
 
       // First, get the visit UUID from the visit_id string
       const { data: visitData } = await supabase
@@ -3228,21 +3260,26 @@ DD/MM/YYYY:-Test Category: Test1:Value1 unit, Test2:Value2 unit`);
                                 className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm border-b border-gray-100 last:border-b-0"
                                 onMouseDown={(e) => {
                                   e.preventDefault(); // Prevent blur event
-                                  const medicationName = medication.name + (medication.strength ? ` ${medication.strength}` : '');
+                                  const medicationName = medication.medicine_name + (medication.type ? ` (${medication.type})` : '');
                                   updateMedicationRow(row.id, 'name', medicationName);
                                   setMedicationSearchTerm('');
                                   setActiveSearchRowId(null);
                                 }}
                               >
-                                <div className="font-medium text-gray-900">{medication.name}</div>
-                                {medication.strength && (
-                                  <div className="text-xs text-gray-500">Strength: {medication.strength}</div>
+                                <div className="font-medium text-gray-900">{medication.medicine_name}</div>
+                                {medication.type && (
+                                  <div className="text-xs text-gray-500">Type: {medication.type}</div>
                                 )}
                                 {medication.generic_name && (
                                   <div className="text-xs text-gray-500">Generic: {medication.generic_name}</div>
                                 )}
-                                {medication.manufacturer && (
-                                  <div className="text-xs text-gray-400">Mfg: {medication.manufacturer}</div>
+                                {medication.manufacturer?.name && (
+                                  <div className="text-xs text-gray-400">Mfg: {medication.manufacturer.name}</div>
+                                )}
+                                {(medication.selling_price || medication.mrp_price) && (
+                                  <div className="text-xs text-gray-400">
+                                    Price: ₹{medication.selling_price || medication.mrp_price}
+                                  </div>
                                 )}
                               </div>
                             ))}
@@ -3577,6 +3614,148 @@ DD/MM/YYYY:-Test Category: Test1:Value1 unit, Test2:Value2 unit`);
                 size="sm"
                 variant="outline"
                 className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100"
+                onClick={async () => {
+                  try {
+                    toast({
+                      title: "Processing",
+                      description: "Generating detailed surgical steps...",
+                    });
+
+                    // Prepare surgical context for AI generation
+                    const surgicalContext = `
+**SURGERY DETAILS:**
+- Procedure: ${surgeryDetails.procedurePerformed || 'N/A'}
+- Surgeon: ${surgeryDetails.surgeon || 'N/A'}
+- Anesthetist: ${surgeryDetails.anesthetist || 'N/A'}
+- Anesthesia Type: ${surgeryDetails.anesthesia || 'General Anesthesia'}
+- Date: ${surgeryDetails.date ? format(new Date(surgeryDetails.date), 'dd-MM-yyyy HH:mm') : 'N/A'}
+- Implant: ${surgeryDetails.implant || 'None'}
+
+**PATIENT INFORMATION:**
+- Name: ${patientData?.patients?.name || 'N/A'}
+- Age: ${patientData?.patients?.age || 'N/A'}
+- Gender: ${patientData?.patients?.gender || 'N/A'}
+
+**DIAGNOSIS:**
+${diagnosis || 'N/A'}
+`;
+
+                    console.log('🔪 Generating surgical steps for:', surgeryDetails.procedurePerformed);
+
+                    // Call OpenAI API for surgical step generation
+                    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
+                      },
+                      body: JSON.stringify({
+                        model: 'gpt-4',
+                        messages: [
+                          {
+                            role: 'system',
+                            content: `You are a surgical documentation specialist. Generate detailed, step-by-step surgical procedure notes for the given surgery.
+
+**REQUIRED FORMAT:**
+
+**DETAILED SURGICAL PROCEDURE NOTES**
+
+**Procedure:** [Surgical Procedure Name]
+**Date & Time:** [Surgery Date & Time]
+**Surgeon:** [Surgeon Name]
+**Anesthetist:** [Anesthetist Name]
+**Anesthesia:** [Type of Anesthesia]
+**Implant:** [Implant details or None]
+
+**DETAILED SURGICAL STEPS:**
+
+**1. Pre-operative Preparation:**
+- [Specific preparation steps for this procedure]
+- [Patient positioning details]
+- [Surgical site preparation]
+- [Antibiotic prophylaxis]
+
+**2. Anesthesia Administration:**
+- [Specific anesthesia details]
+- [Monitoring requirements]
+- [Intubation if required]
+
+**3. Surgical Approach:**
+- [Specific incision details for this procedure]
+- [Anatomical landmarks]
+- [Tissue dissection approach]
+
+**4. Operative Procedure:**
+- [Detailed step-by-step surgical technique specific to this procedure]
+- [Key anatomical structures identification]
+- [Specific surgical maneuvers]
+- [Hemostasis techniques]
+- [Implant placement if applicable]
+
+**5. Closure:**
+- [Layer-by-layer closure specific to this procedure]
+- [Suture materials and techniques]
+- [Drainage if required]
+- [Dressing application]
+
+**6. Post-operative:**
+- [Immediate post-operative care]
+- [Recovery considerations]
+- [Follow-up requirements]
+
+**Estimated Blood Loss:** [Estimate based on procedure]
+**Duration:** [Typical duration for this procedure]
+**Complications:** [Any complications or None]
+
+IMPORTANT: Create detailed, procedure-specific surgical steps. Use medical terminology appropriate for the specific surgery being performed. Be thorough and professional.`
+                          },
+                          {
+                            role: 'user',
+                            content: `Please generate detailed surgical procedure steps for the following surgery:
+
+${surgicalContext}
+
+Focus on creating step-by-step surgical notes that are specific to the procedure being performed. Include all relevant surgical steps, techniques, and considerations for this specific operation.`
+                          }
+                        ],
+                        temperature: 0.7,
+                        max_tokens: 3000
+                      })
+                    });
+
+                    if (!response.ok) {
+                      throw new Error(`OpenAI API error: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    const generatedSteps = data.choices[0]?.message?.content;
+
+                    if (generatedSteps) {
+                      // Update the surgery description with generated steps
+                      setSurgeryDetails(prev => ({
+                        ...prev,
+                        description: generatedSteps
+                      }));
+
+                      toast({
+                        title: "Success",
+                        description: "Detailed surgical steps generated successfully!",
+                      });
+
+                      console.log('✅ Generated Surgical Steps:', generatedSteps);
+                    } else {
+                      throw new Error('No response from ChatGPT');
+                    }
+
+                  } catch (error) {
+                    console.error('❌ Surgical Steps Generation Error:', error);
+                    toast({
+                      title: "Error",
+                      description: `Failed to generate surgical steps: ${error.message}`,
+                      variant: "destructive"
+                    });
+                  }
+                }}
               >
                 🤖 AI Generate
               </Button>
@@ -3600,11 +3779,93 @@ Enter surgical procedure description here...`}
         </CardContent>
       </Card>
 
-      {/* OT Notes / Stay Notes */}
+
+      {/* Treatment During Hospital Stay */}
       <Card>
         <CardHeader>
-          <CardTitle>OT Notes</CardTitle>
+          <CardTitle>Treatment During Hospital Stay:</CardTitle>
         </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>The condition of patient at the time of discharge was:</Label>
+              <div className="flex space-x-4">
+                <Select value={treatmentCondition} onValueChange={setTreatmentCondition}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Satisfactory">Satisfactory</SelectItem>
+                    <SelectItem value="Good">Good</SelectItem>
+                    <SelectItem value="Critical">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={treatmentStatus} onValueChange={setTreatmentStatus}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Please select">Please select</SelectItem>
+                    <SelectItem value="Stable">Stable</SelectItem>
+                    <SelectItem value="Improving">Improving</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Review on*</Label>
+              <Input
+                type="date"
+                value={reviewDate}
+                onChange={(e) => setReviewDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Resident On Discharge*</Label>
+              <Select value={residentOnDischarge} onValueChange={setResidentOnDischarge}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Please select">Please select</SelectItem>
+                  {consultants.map((consultant: any) => (
+                    <SelectItem key={consultant.id} value={consultant.name}>
+                      {consultant.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2 mt-6">
+              <Checkbox
+                checked={enableSmsAlert}
+                onCheckedChange={setEnableSmsAlert}
+              />
+              <Label>Enable SMS Alert</Label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Save Button */}
+      <div className="flex justify-center space-x-4 pb-6">
+        <Button onClick={handleSave} className="px-8 py-2 bg-blue-600 hover:bg-blue-700">
+          Save
+        </Button>
+        <Button
+          onClick={() => navigate('/todays-ipd')}
+          variant="outline"
+          className="px-8 py-2 border-gray-300 hover:bg-gray-50"
+        >
+          Close
+        </Button>
+      </div>
+
+      {/* AI Generated Discharge Summary Section */}
+      <Card>
         <CardContent>
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3802,11 +4063,24 @@ Enter surgical procedure description here...`}
                     value={newTemplateContent}
                     onChange={(e) => setNewTemplateContent(e.target.value)}
                   />
-                  <div className="flex space-x-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Row 1 */}
                     <Button
                       type="button"
                       size="sm"
                       className="bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleFetchPatientData();
+                      }}
+                    >
+                      📋 Fetch Data
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
                       onClick={async (e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -3823,12 +4097,53 @@ Enter surgical procedure description here...`}
                         try {
                           toast({
                             title: "Processing",
-                            description: "Sending request to ChatGPT...",
+                            description: "Generating AI discharge summary...",
                           });
 
-                          console.log('🤖 Sending to ChatGPT:', newTemplateContent);
+                          // Prepare patient data to send with the prompt
+                          const patientInfo = patientData?.patients;
+                          const patientDataText = `
+**PATIENT INFORMATION:**
+- Name: ${patientInfo?.name || 'N/A'}
+- Age: ${patientInfo?.age || 'N/A'} years
+- Gender: ${patientInfo?.gender || 'N/A'}
+- MRN: ${patientInfo?.mrn || 'N/A'}
+- Admission Date: ${patientInfo?.created_at ? format(new Date(patientInfo.created_at), 'dd-MM-yyyy') : 'N/A'}
 
-                          // Call OpenAI API
+**DIAGNOSIS:**
+${diagnosis || 'N/A'}
+
+**SURGERY PERFORMED:**
+- Procedure: ${surgeryDetails.procedurePerformed || 'N/A'}
+- Date: ${surgeryDetails.date ? format(new Date(surgeryDetails.date), 'dd-MM-yyyy HH:mm') : 'N/A'}
+- Surgeon: ${surgeryDetails.surgeon || 'N/A'}
+- Anesthetist: ${surgeryDetails.anesthetist || 'N/A'}
+- Anesthesia Type: ${surgeryDetails.anesthesia || 'N/A'}
+- Implant: ${surgeryDetails.implant || 'N/A'}
+
+**MEDICATIONS ON DISCHARGE:**
+${medicationRows.map((med, index) =>
+  `${index + 1}. ${med.name || 'N/A'} - ${med.dose || 'N/A'} ${med.route || 'P.O'} for ${med.days || 'N/A'} days`
+).join('\n') || 'No medications prescribed'}
+
+**VITAL SIGNS:**
+- Temperature: ${examination.temp || 'N/A'}°F
+- Pulse Rate: ${examination.pr || 'N/A'} bpm
+- Blood Pressure: ${examination.bp || 'N/A'} mmHg
+- Respiratory Rate: ${examination.rr || 'N/A'} /min
+- SpO2: ${examination.spo2 || 'N/A'}%
+
+**INVESTIGATIONS:**
+${investigations || 'No investigations available'}
+`;
+
+                          const fullPromptWithData = `${newTemplateContent}
+
+${patientDataText}`;
+
+                          console.log('🤖 Sending to ChatGPT with patient data:', fullPromptWithData);
+
+                          // Call OpenAI API with enhanced system prompt for standard discharge summary
                           const response = await fetch('https://api.openai.com/v1/chat/completions', {
                             method: 'POST',
                             headers: {
@@ -3840,15 +4155,90 @@ Enter surgical procedure description here...`}
                               messages: [
                                 {
                                   role: 'system',
-                                  content: 'You are a medical documentation assistant. When creating tables, ALWAYS use markdown table format with proper alignment. Ensure tables have clear borders using pipes (|) and dashes (-). Format tables exactly like this:\n\n| Column 1 | Column 2 | Column 3 |\n|----------|----------|----------|\n| Data 1   | Data 2   | Data 3   |\n\nMake sure each table has a header row, a separator row with dashes, and data rows. Keep table formatting clean and consistent.\n\nIMPORTANT INSTRUCTIONS:\n1. Do NOT include any PATIENT DETAILS section or table - patient information is already displayed at the top of the document\n2. At the end of the ADVICE section, always add this line: "Follow up after 7 days/SOS."\n3. Do NOT include the emergency contact line (URGENT CARE/EMERGENCY CARE IS AVAILABLE...) in the ADVICE section, as it will be added separately at the bottom of the document\n4. Start directly with the Operation Notes table if surgery was performed, or with MEDICATIONS if no surgery'
+                                  content: `You are a medical specialist creating professionally written discharge summaries. Follow the template requirements exactly as specified by the user. Create comprehensive medical documentation with proper formatting.
+
+**STRICT REQUIREMENTS:**
+
+1. **DIAGNOSIS SECTION** (at the beginning):
+   - Primary diagnosis first
+   - Secondary diagnoses if applicable
+   - Use medical terminology appropriately
+
+2. **MEDICATIONS TABLE** (immediately after diagnosis):
+   | Name | Strength | Route | Dosage | Days |
+   |------|----------|-------|---------|------|
+   - **CRITICAL**: If no medications are provided in patient data, suggest appropriate medications based on the diagnosis and surgery performed
+   - For post-surgical patients: Include antibiotics, pain management, and surgery-specific medications
+   - For medical conditions: Include condition-specific treatments (e.g., ACE inhibitors for nephritis, diuretics for kidney conditions, anti-seizure medications for SAH)
+   - Include Indian brand medications when appropriate (e.g., Augmentin, Paracetamol, Pantoprazole, etc.)
+   - Add Hindi translation in dosage column alongside English
+   - Detailed instructions (once/twice/thrice daily)
+   - Specify route (P.O., I.V., I.M., etc.)
+   - Include typical discharge duration (5-7 days for antibiotics, 3-5 days for pain meds)
+
+3. **OPERATION NOTES TABLE** (if surgery performed - minimum 6 rows):
+   | Row | Details |
+   |-----|---------|
+   | 1 | Date and Time of Surgery |
+   | 2 | Procedure Title |
+   | 3 | Surgeon Name |
+   | 4 | Anesthetist Name |
+   | 5 | Type of Anesthesia |
+   | 6+ | Detailed Description of Surgery |
+
+4. **CLINICAL FINDINGS:**
+   - Events during hospital stay
+   - Examination findings
+   - Course of treatment
+
+5. **INVESTIGATIONS:**
+   - Lab results and imaging findings
+   - Relevant diagnostic tests
+
+6. **ADVICE:**
+   - Home care precautions
+   - Warning signs to watch for
+   - When to return to hospital
+   - Follow up after 7 days/SOS
+
+7. **EMERGENCY CONTACT** (mandatory ending):
+   URGENT CARE/ EMERGENCY CARE IS AVAILABLE 24 X 7. PLEASE CONTACT:-7030974619, 9373111709.
+
+IMPORTANT:
+- Create detailed, comprehensive content (minimum 800 words)
+- Use headings, subheadings, bullet points, and bold formatting
+- Professional medical terminology for doctor-to-doctor communication
+- Include complications to watch for with symptoms and signs
+- Use proper markdown table formatting with clear borders
+- Follow the user's template instructions precisely`
                                 },
                                 {
                                   role: 'user',
-                                  content: newTemplateContent
+                                  content: `Please create a comprehensive discharge summary following the template instructions provided below. Apply the template exactly as specified and use the patient data provided to generate detailed, professional medical documentation.
+
+**TEMPLATE INSTRUCTIONS:**
+${fullPromptWithData}
+
+**IMPORTANT NOTES:**
+- Follow the template requirements exactly as specified
+- Generate comprehensive content (minimum 800 words)
+- Include all required sections: Diagnosis, Medications Table, Operation Notes (if surgery), Clinical Findings, Investigations, Advice, Emergency Contact
+- **MEDICATION REQUIREMENTS**: If patient data shows no medications or only basic fluids (like NS/Normal Saline), generate appropriate discharge medications based on:
+  * Primary and secondary diagnoses
+  * Surgery performed (if any)
+  * Standard post-operative care
+  * Condition-specific treatments
+- Use Indian brand medications where appropriate (Augmentin, Calpol, Pan-D, etc.)
+- Add Hindi translations in dosage column (e.g., "दिन में दो बार" for twice daily)
+- Create detailed operation notes table with minimum 6 rows if surgery was performed
+- Include complications to watch for with symptoms and signs
+- End with the mandatory emergency contact information
+
+Generate the discharge summary now:`
                                 }
                               ],
                               temperature: 0.7,
-                              max_tokens: 2000
+                              max_tokens: 6000
                             })
                           });
 
@@ -3860,12 +4250,12 @@ Enter surgical procedure description here...`}
                           const generatedSummary = data.choices[0]?.message?.content;
 
                           if (generatedSummary) {
-                            // Display generated summary in Stay Notes box
+                            // Display generated summary in the right section
                             setStayNotes(generatedSummary);
 
                             toast({
                               title: "Success",
-                              description: "Discharge summary generated successfully!",
+                              description: "Professional discharge summary generated successfully!",
                             });
 
                             console.log('✅ Generated Summary:', generatedSummary);
@@ -3883,24 +4273,191 @@ Enter surgical procedure description here...`}
                         }
                       }}
                     >
-                      Message chat GPT as
+                      🤖 AI Generated Summary
+                    </Button>
+
+                    {/* Row 2 */}
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      onClick={() => {
+                        if (!stayNotes.trim()) {
+                          toast({
+                            title: "Error",
+                            description: "Please generate a discharge summary first",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        setPreviewContent(stayNotes);
+                        setShowPreview(true);
+                      }}
+                    >
+                      👁️ Preview
                     </Button>
                     <Button
                       size="sm"
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                      onClick={handleFetchDischargeSummaryData}
+                      className="bg-gray-600 hover:bg-gray-700 text-white"
+                      onClick={() => {
+                        if (!stayNotes.trim()) {
+                          toast({
+                            title: "Error",
+                            description: "Please generate a discharge summary first",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+
+                        // Create a print window with formatted content
+                        const printWindow = window.open('', '_blank');
+                        if (printWindow) {
+                          // Function to convert markdown tables to HTML tables
+                          const convertMarkdownTables = (content) => {
+                            const lines = content.split('\n');
+                            let result = [];
+                            let inTable = false;
+                            let tableRows = [];
+
+                            for (let i = 0; i < lines.length; i++) {
+                              const line = lines[i].trim();
+
+                              if (line.startsWith('|') && line.endsWith('|')) {
+                                if (!inTable) {
+                                  inTable = true;
+                                  tableRows = [];
+                                }
+
+                                if (!/^[\|\-\s]+$/.test(line)) {
+                                  tableRows.push(line);
+                                }
+                              } else {
+                                if (inTable && tableRows.length > 0) {
+                                  result.push(convertTableRows(tableRows));
+                                  tableRows = [];
+                                  inTable = false;
+                                }
+
+                                if (line) {
+                                  result.push(line);
+                                }
+                              }
+                            }
+
+                            if (inTable && tableRows.length > 0) {
+                              result.push(convertTableRows(tableRows));
+                            }
+
+                            return result.join('\n');
+                          };
+
+                          const convertTableRows = (rows) => {
+                            if (rows.length === 0) return '';
+
+                            let html = '<table style="border-collapse: collapse; width: 100%; margin: 20px 0; border: 2px solid #2c3e50;">';
+
+                            rows.forEach((row, index) => {
+                              const cells = row.split('|').filter(cell => cell.trim() !== '');
+                              const isHeader = index === 0;
+                              const tag = isHeader ? 'th' : 'td';
+                              const style = isHeader
+                                ? 'border: 1px solid #2c3e50; padding: 12px; text-align: left; background-color: #ecf0f1; font-weight: bold;'
+                                : 'border: 1px solid #2c3e50; padding: 12px; text-align: left;';
+
+                              html += '<tr>';
+                              cells.forEach(cell => {
+                                html += `<${tag} style="${style}">${cell.trim()}</${tag}>`;
+                              });
+                              html += '</tr>';
+                            });
+
+                            html += '</table>';
+                            return html;
+                          };
+
+                          let processedContent = convertMarkdownTables(stayNotes);
+                          processedContent = processedContent
+                            .replace(/\n/g, '<br>')
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                            // Format DISCHARGE SUMMARY header
+                            .replace(/DISCHARGE SUMMARY/g, '<h1 style="text-align: center; font-size: 24px; font-weight: bold; margin: 20px 0 5px 0; color: #000;">DISCHARGE SUMMARY</h1><hr style="border: 1px solid #000; margin: 5px 0 15px 0;">')
+                            // Format patient details as subheadings
+                            .replace(/Patient Name:/g, '<strong style="font-size: 14px;">Patient Name:</strong>')
+                            .replace(/MRN:/g, '<strong style="font-size: 14px;">MRN:</strong>')
+                            .replace(/Age:/g, '<strong style="font-size: 14px;">Age:</strong>')
+                            .replace(/Gender:/g, '<strong style="font-size: 14px;">Gender:</strong>')
+                            .replace(/Admission Date:/g, '<strong style="font-size: 14px;">Admission Date:</strong>')
+                            .replace(/Discharge Date:/g, '<strong style="font-size: 14px;">Discharge Date:</strong>')
+                            .replace(/<br><strong>(DIAGNOSIS|MEDICATIONS|OPERATION NOTES|CLINICAL FINDINGS|INVESTIGATIONS|ADVICE|EMERGENCY CONTACT)([^<]*?)<\/strong>/g, '<br><br><strong style="font-size: 16px; color: #2c3e50; display: block; margin: 20px 0 10px 0; border-bottom: 2px solid #3498db; padding-bottom: 5px;">$1$2</strong>')
+                            .replace(/<br><table/g, '<table')
+                            .replace(/<\/table><br>/g, '</table>');
+
+                          printWindow.document.write(`
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                              <title>Discharge Summary</title>
+                              <style>
+                                body {
+                                  font-family: 'Times New Roman', serif;
+                                  line-height: 1.6;
+                                  margin: 40px;
+                                  color: #000;
+                                }
+                                h1, h2, h3 {
+                                  color: #2c3e50;
+                                  border-bottom: 2px solid #3498db;
+                                  padding-bottom: 5px;
+                                }
+                                table {
+                                  border-collapse: collapse;
+                                  width: 100%;
+                                  margin: 20px 0;
+                                  border: 2px solid #2c3e50;
+                                }
+                                th, td {
+                                  border: 1px solid #2c3e50;
+                                  padding: 12px;
+                                  text-align: left;
+                                }
+                                th {
+                                  background-color: #ecf0f1;
+                                  font-weight: bold;
+                                }
+                                @media print {
+                                  body { margin: 20px; }
+                                  .no-print { display: none; }
+                                }
+                              </style>
+                            </head>
+                            <body>
+                              <div>${processedContent}</div>
+                              <script>
+                                window.onload = function() {
+                                  window.print();
+                                  window.onafterprint = function() {
+                                    window.close();
+                                  };
+                                };
+                              </script>
+                            </body>
+                            </html>
+                          `);
+                          printWindow.document.close();
+                        }
+                      }}
                     >
-                      Fetch Data
+                      🖨️ Print
                     </Button>
                   </div>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Stay Notes:</Label>
                 <Textarea
                   value={stayNotes}
                   onChange={(e) => setStayNotes(e.target.value)}
                   className="min-h-[280px]"
+                  placeholder="Generated discharge summary will appear here..."
                 />
               </div>
             </div>
@@ -3908,89 +4465,281 @@ Enter surgical procedure description here...`}
         </CardContent>
       </Card>
 
-      {/* Treatment During Hospital Stay */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Treatment During Hospital Stay:</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>The condition of patient at the time of discharge was:</Label>
-              <div className="flex space-x-4">
-                <Select value={treatmentCondition} onValueChange={setTreatmentCondition}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Satisfactory">Satisfactory</SelectItem>
-                    <SelectItem value="Good">Good</SelectItem>
-                    <SelectItem value="Critical">Critical</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={treatmentStatus} onValueChange={setTreatmentStatus}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Please select">Please select</SelectItem>
-                    <SelectItem value="Stable">Stable</SelectItem>
-                    <SelectItem value="Improving">Improving</SelectItem>
-                  </SelectContent>
-                </Select>
+      {/* Preview Modal */}
+      {showPreview && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-[90%] h-[90%] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b bg-blue-50">
+              <h2 className="text-xl font-bold text-gray-800">📋 Discharge Summary Preview</h2>
+              <div className="flex space-x-2">
+                <Button
+                  onClick={() => {
+                    // Create a print window with formatted content
+                    const printWindow = window.open('', '_blank');
+                    if (printWindow) {
+                      // Function to convert markdown tables to HTML tables
+                      const convertMarkdownTables = (content) => {
+                        const lines = content.split('\n');
+                        let result = [];
+                        let inTable = false;
+                        let tableRows = [];
+
+                        for (let i = 0; i < lines.length; i++) {
+                          const line = lines[i].trim();
+
+                          if (line.startsWith('|') && line.endsWith('|')) {
+                            if (!inTable) {
+                              inTable = true;
+                              tableRows = [];
+                            }
+
+                            if (!/^[\|\-\s]+$/.test(line)) {
+                              tableRows.push(line);
+                            }
+                          } else {
+                            if (inTable && tableRows.length > 0) {
+                              result.push(convertTableRows(tableRows));
+                              tableRows = [];
+                              inTable = false;
+                            }
+
+                            if (line) {
+                              result.push(line);
+                            }
+                          }
+                        }
+
+                        if (inTable && tableRows.length > 0) {
+                          result.push(convertTableRows(tableRows));
+                        }
+
+                        return result.join('\n');
+                      };
+
+                      const convertTableRows = (rows) => {
+                        if (rows.length === 0) return '';
+
+                        let html = '<table style="border-collapse: collapse; width: 100%; margin: 20px 0; border: 2px solid #2c3e50;">';
+
+                        rows.forEach((row, index) => {
+                          const cells = row.split('|').filter(cell => cell.trim() !== '');
+                          const isHeader = index === 0;
+                          const tag = isHeader ? 'th' : 'td';
+                          const style = isHeader
+                            ? 'border: 1px solid #2c3e50; padding: 12px; text-align: left; background-color: #ecf0f1; font-weight: bold;'
+                            : 'border: 1px solid #2c3e50; padding: 12px; text-align: left;';
+
+                          html += '<tr>';
+                          cells.forEach(cell => {
+                            html += `<${tag} style="${style}">${cell.trim()}</${tag}>`;
+                          });
+                          html += '</tr>';
+                        });
+
+                        html += '</table>';
+                        return html;
+                      };
+
+                      let processedContent = convertMarkdownTables(previewContent);
+                      processedContent = processedContent
+                        .replace(/\n/g, '<br>')
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                        // Format DISCHARGE SUMMARY header
+                        .replace(/DISCHARGE SUMMARY/g, '<h1 style="text-align: center; font-size: 24px; font-weight: bold; margin: 20px 0 10px 0; color: #000;">DISCHARGE SUMMARY</h1><hr style="border: 1px solid #000; margin: 10px 0 20px 0;">')
+                        .replace(/<br><strong>(DIAGNOSIS|MEDICATIONS|OPERATION NOTES|CLINICAL FINDINGS|INVESTIGATIONS|ADVICE|EMERGENCY CONTACT)([^<]*?)<\/strong>/g, '<br><br><strong style="font-size: 16px; color: #2c3e50; display: block; margin: 20px 0 10px 0; border-bottom: 2px solid #3498db; padding-bottom: 5px;">$1$2</strong>')
+                        .replace(/<br><table/g, '<table')
+                        .replace(/<\/table><br>/g, '</table>');
+
+                      printWindow.document.write(`
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                          <title>Discharge Summary</title>
+                          <style>
+                            body {
+                              font-family: 'Times New Roman', serif;
+                              line-height: 1.6;
+                              margin: 40px;
+                              color: #000;
+                            }
+                            h1, h2, h3 {
+                              color: #2c3e50;
+                              border-bottom: 2px solid #3498db;
+                              padding-bottom: 5px;
+                            }
+                            table {
+                              border-collapse: collapse;
+                              width: 100%;
+                              margin: 20px 0;
+                              border: 2px solid #2c3e50;
+                            }
+                            th, td {
+                              border: 1px solid #2c3e50;
+                              padding: 12px;
+                              text-align: left;
+                            }
+                            th {
+                              background-color: #ecf0f1;
+                              font-weight: bold;
+                            }
+                            @media print {
+                              body { margin: 20px; }
+                              .no-print { display: none; }
+                            }
+                          </style>
+                        </head>
+                        <body>
+                          <div>${processedContent}</div>
+                          <script>
+                            window.onload = function() {
+                              window.print();
+                              window.onafterprint = function() {
+                                window.close();
+                              };
+                            };
+                          </script>
+                        </body>
+                        </html>
+                      `);
+                      printWindow.document.close();
+                    }
+                  }}
+                  className="bg-gray-600 hover:bg-gray-700 text-white"
+                  size="sm"
+                >
+                  🖨️ Print from Preview
+                </Button>
+                <Button
+                  onClick={() => setShowPreview(false)}
+                  variant="outline"
+                  size="sm"
+                >
+                  ✕ Close
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6 bg-white">
+              <div className="max-w-4xl mx-auto">
+                <div className="bg-white shadow-lg border-2 border-gray-200 rounded-lg p-8">
+                  <div className="prose prose-lg max-w-none">
+                    <div
+                      className="formatted-content"
+                      style={{
+                        lineHeight: '1.6',
+                        fontSize: '14px',
+                        fontFamily: 'Times New Roman, serif'
+                      }}
+                      dangerouslySetInnerHTML={{
+                        __html: (() => {
+                          // Function to convert markdown tables to HTML tables
+                          const convertMarkdownTables = (content) => {
+                            // Split content by lines
+                            const lines = content.split('\n');
+                            let result = [];
+                            let inTable = false;
+                            let tableRows = [];
+
+                            for (let i = 0; i < lines.length; i++) {
+                              const line = lines[i].trim();
+
+                              // Check if line contains table markup (starts and ends with |)
+                              if (line.startsWith('|') && line.endsWith('|')) {
+                                if (!inTable) {
+                                  inTable = true;
+                                  tableRows = [];
+                                }
+
+                                // Skip separator rows (contain only |, -, and spaces)
+                                if (!/^[\|\-\s]+$/.test(line)) {
+                                  tableRows.push(line);
+                                }
+                              } else {
+                                // If we were in a table and now we're not, convert the table
+                                if (inTable && tableRows.length > 0) {
+                                  result.push(convertTableRows(tableRows));
+                                  tableRows = [];
+                                  inTable = false;
+                                }
+
+                                // Add the non-table line
+                                if (line) {
+                                  result.push(line);
+                                }
+                              }
+                            }
+
+                            // Handle case where content ends with a table
+                            if (inTable && tableRows.length > 0) {
+                              result.push(convertTableRows(tableRows));
+                            }
+
+                            return result.join('\n');
+                          };
+
+                          // Function to convert table rows to HTML
+                          const convertTableRows = (rows) => {
+                            if (rows.length === 0) return '';
+
+                            let html = '<table class="medical-table" style="border-collapse: collapse; width: 100%; margin: 20px 0; border: 2px solid #2c3e50;">';
+
+                            rows.forEach((row, index) => {
+                              const cells = row.split('|').filter(cell => cell.trim() !== '');
+                              const isHeader = index === 0;
+                              const tag = isHeader ? 'th' : 'td';
+                              const style = isHeader
+                                ? 'border: 1px solid #2c3e50; padding: 12px; text-align: left; background-color: #ecf0f1; font-weight: bold;'
+                                : 'border: 1px solid #2c3e50; padding: 12px; text-align: left;';
+
+                              html += '<tr>';
+                              cells.forEach(cell => {
+                                html += `<${tag} style="${style}">${cell.trim()}</${tag}>`;
+                              });
+                              html += '</tr>';
+                            });
+
+                            html += '</table>';
+                            return html;
+                          };
+
+                          // Process the content
+                          let processedContent = previewContent
+                            // First convert markdown tables
+                            .replace(/\r\n/g, '\n')
+                            .replace(/\r/g, '\n');
+
+                          processedContent = convertMarkdownTables(processedContent);
+
+                          // Then apply other formatting
+                          return processedContent
+                            .replace(/\n/g, '<br>')
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                            // Format DISCHARGE SUMMARY header
+                            .replace(/DISCHARGE SUMMARY/g, '<h1 style="text-align: center; font-size: 24px; font-weight: bold; margin: 20px 0 5px 0; color: #000;">DISCHARGE SUMMARY</h1><hr style="border: 1px solid #000; margin: 5px 0 15px 0;">')
+                            // Format patient details as subheadings
+                            .replace(/Patient Name:/g, '<strong style="font-size: 14px;">Patient Name:</strong>')
+                            .replace(/MRN:/g, '<strong style="font-size: 14px;">MRN:</strong>')
+                            .replace(/Age:/g, '<strong style="font-size: 14px;">Age:</strong>')
+                            .replace(/Gender:/g, '<strong style="font-size: 14px;">Gender:</strong>')
+                            .replace(/Admission Date:/g, '<strong style="font-size: 14px;">Admission Date:</strong>')
+                            .replace(/Discharge Date:/g, '<strong style="font-size: 14px;">Discharge Date:</strong>')
+                            // Add some spacing around section headers
+                            .replace(/<br><strong>(DIAGNOSIS|MEDICATIONS|OPERATION NOTES|CLINICAL FINDINGS|INVESTIGATIONS|ADVICE|EMERGENCY CONTACT)([^<]*?)<\/strong>/g, '<br><br><strong style="font-size: 16px; color: #2c3e50; display: block; margin: 20px 0 10px 0; border-bottom: 2px solid #3498db; padding-bottom: 5px;">$1$2</strong>')
+                            // Clean up extra line breaks around tables
+                            .replace(/<br><table/g, '<table')
+                            .replace(/<\/table><br>/g, '</table>');
+                        })()
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Review on*</Label>
-              <Input
-                type="date"
-                value={reviewDate}
-                onChange={(e) => setReviewDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Resident On Discharge*</Label>
-              <Select value={residentOnDischarge} onValueChange={setResidentOnDischarge}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Please select">Please select</SelectItem>
-                  {consultants.map((consultant: any) => (
-                    <SelectItem key={consultant.id} value={consultant.name}>
-                      {consultant.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center space-x-2 mt-6">
-              <Checkbox
-                checked={enableSmsAlert}
-                onCheckedChange={setEnableSmsAlert}
-              />
-              <Label>Enable SMS Alert</Label>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Save Button */}
-      <div className="flex justify-center space-x-4 pb-6">
-        <Button onClick={handleSave} className="px-8 py-2 bg-blue-600 hover:bg-blue-700">
-          Save
-        </Button>
-        <Button
-          onClick={() => navigate('/todays-ipd')}
-          variant="outline"
-          className="px-8 py-2 border-gray-300 hover:bg-gray-50"
-        >
-          Close
-        </Button>
-      </div>
+        </div>
+      )}
       </div>
     </form>
   );

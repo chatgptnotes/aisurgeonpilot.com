@@ -33,7 +33,7 @@ export const useCounts = () => {
     queryFn: async () => {
       try {
         // Use hospital_name column for filtering
-        let countQuery = supabase
+        const countQuery = supabase
           .from('patients')
           .select('*', { count: 'exact', head: true })
           .eq('hospital_name', hospitalConfig.name);

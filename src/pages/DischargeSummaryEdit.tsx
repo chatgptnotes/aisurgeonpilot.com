@@ -174,7 +174,7 @@ function parseMedication(medString: string | any): { name: string; strength: str
 
     // Extract strength (usually second part with mg/ml/gm)
     let strength = 'N/A';
-    let strengthIndex = 2; // Track where strength ends
+    const strengthIndex = 2; // Track where strength ends
     if (parts[1] && parts[1].match(/\d+\s*(mg|ml|gm|g|mcg|iu|unit)/i)) {
       strength = parts[1].toUpperCase();
     } else if (parts[1] && parts[1].match(/^\d+$/)) {
@@ -518,7 +518,7 @@ export default function DischargeSummaryEdit() {
 
         // Primary query - use the SAME UUID that FinalBill uses for saving
         console.log('🔍 Querying complications with FinalBill UUID:', complicationsVisitUUID);
-        let result = await supabase
+        const result = await supabase
           .from('visit_complications')
           .select(`
             *,
@@ -975,7 +975,7 @@ export default function DischargeSummaryEdit() {
 
       // 8. Fetch pharmacy/prescription data
       let prescriptionData = null;
-      let prescriptionError = null;
+      const prescriptionError = null;
 
       if (visitData?.id || visitId) {
         console.log('🔍 Fetching prescription/pharmacy data for visit:', visitId);
@@ -1111,7 +1111,7 @@ export default function DischargeSummaryEdit() {
       setComplications(complications);
 
       // Process lab tests with fallback data
-      let labTests = labOrders?.map(l => l.lab?.name).filter(Boolean) || [];
+      const labTests = labOrders?.map(l => l.lab?.name).filter(Boolean) || [];
 
       // Debug lab orders structure
       console.log('🔬 Lab Orders Debug:', {
@@ -1121,7 +1121,7 @@ export default function DischargeSummaryEdit() {
       });
 
       // Process lab orders - include both with and without results
-      let labResultsList = labOrders?.map(l => {
+      const labResultsList = labOrders?.map(l => {
         const testName = l.lab?.name || l.test_name || 'Lab Test';
         const resultValue = l.result_value || l.observed_value || l.result || l.value || null;
         const unit = l.lab?.unit || l.unit || l.result_unit || '';
@@ -1216,7 +1216,7 @@ export default function DischargeSummaryEdit() {
       setAbnormalResults(abnormalResultsLocal);
 
       // Process radiology tests with fallback data
-      let radiologyTests = radiologyOrders?.map(r => r.radiology?.name).filter(Boolean) || [];
+      const radiologyTests = radiologyOrders?.map(r => r.radiology?.name).filter(Boolean) || [];
 
       // No static/dummy data as requested by user - only use real database data
 
@@ -2326,8 +2326,8 @@ URGENT CARE/ EMERGENCY CARE IS AVAILABLE 24 X 7. PLEASE CONTACT: 7030974619, 937
 
         // Convert plain text to HTML while preserving all content and formatting
         const lines = dischargeSummaryText.split('\n');
-        let htmlContent = [];
-        let currentTable = null;
+        const htmlContent = [];
+        const currentTable = null;
         let inTable = false;
         let tableHeaders = [];
         let tableRows = [];
@@ -3001,10 +3001,10 @@ URGENT CARE/ EMERGENCY CARE IS AVAILABLE 24 X 7. PLEASE CONTACT: 7030974619, 937
             </Button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                Discharge Summary
+                OPD Summary
               </h1>
               <p className="text-gray-600">
-                Patient: {patient.patients?.name} | Visit ID: {patient.visit_id}
+                Patient: {patient.patients?.name} | Visit ID: O{patient.visit_id}
               </p>
             </div>
           </div>
@@ -3075,7 +3075,7 @@ URGENT CARE/ EMERGENCY CARE IS AVAILABLE 24 X 7. PLEASE CONTACT: 7030974619, 937
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Discharge Summary Content</CardTitle>
+                <CardTitle>OPD Summary Content</CardTitle>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -3234,10 +3234,10 @@ URGENT CARE/ EMERGENCY CARE IS AVAILABLE 24 X 7. PLEASE CONTACT: 7030974619, 937
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
-              AI Discharge Summary Generation
+              AI OPD Summary Generation
             </DialogTitle>
             <DialogDescription>
-              Review and edit the patient data and prompt before generating the AI discharge summary.
+              Review and edit the patient data and prompt before generating the AI OPD summary.
             </DialogDescription>
           </DialogHeader>
 

@@ -61,7 +61,7 @@ const Index = () => {
       console.log('🚨 INDEX QUERY DEBUG: About to query patients for hospital:', currentHospital);
       
       // Get patient IDs based on hospital_name column
-      let patientsQuery = supabase
+      const patientsQuery = supabase
         .from('patients')
         .select('patients_id, hospital_name')
         .eq('hospital_name', currentHospital);

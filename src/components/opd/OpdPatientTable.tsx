@@ -8,6 +8,7 @@ import { X, Check, Eye, FileText, UserCheck, Trash2, DollarSign, MessageSquare, 
 import { VisitRegistrationForm } from '@/components/VisitRegistrationForm';
 import { supabase } from '@/integrations/supabase/client';
 import { useDebounce } from 'use-debounce';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Patient {
   id: string;
@@ -42,6 +43,7 @@ interface OpdPatientTableProps {
 
 export const OpdPatientTable = ({ patients, refetch }: OpdPatientTableProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [selectedPatientForVisit, setSelectedPatientForVisit] = useState<Patient | null>(null);
   const [isVisitFormOpen, setIsVisitFormOpen] = useState(false);
   const [hiddenPatients, setHiddenPatients] = useState<Set<string>>(new Set());
@@ -1056,9 +1058,9 @@ Verified by: [To be verified by doctor]`;
             <TableHead className="font-medium">Corporate</TableHead>
             <TableHead className="text-center font-medium">Payment Received</TableHead>
             <TableHead className="text-center font-medium">Admit To Hospital</TableHead>
-            <TableHead className="text-center font-medium">Admission Notes</TableHead>
+            <TableHead className="text-center font-medium">Notes</TableHead>
             <TableHead className="text-center font-medium">Physiotherapy Bill</TableHead>
-            <TableHead className="text-center font-medium">Discharge Summary</TableHead>
+            <TableHead className="text-center font-medium">OPD Summary</TableHead>
             <TableHead className="text-center font-medium">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -1155,16 +1157,26 @@ Verified by: [To be verified by doctor]`;
                 </Button>
               </TableCell>
               <TableCell className="text-center">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => handleDischargeSummaryClick(patient)}
-                  disabled={!patient.is_discharged}
-                  title={patient.is_discharged ? "View/Add Discharge Summary" : "Complete final payment to enable"}
-                >
-                  <FileTextIcon className={`h-4 w-4 ${patient.is_discharged ? 'text-purple-600' : 'text-gray-400'}`} />
-                </Button>
+                {(() => {
+                  const isAdminOrScope = user?.role === 'admin' || user?.role === 'scope';
+                  const canAccess = patient.is_discharged || isAdminOrScope;
+                  const buttonTitle = canAccess
+                    ? "View/Add OPD Summary"
+                    : "Complete final payment to enable";
+
+                  return (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => handleDischargeSummaryClick(patient)}
+                      disabled={!canAccess}
+                      title={buttonTitle}
+                    >
+                      <FileTextIcon className={`h-4 w-4 ${canAccess ? 'text-purple-600' : 'text-gray-400'}`} />
+                    </Button>
+                  );
+                })()}
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">

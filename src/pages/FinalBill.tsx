@@ -7457,7 +7457,7 @@ INSTRUCTIONS:
       }
 
       // If we have junction table records, fetch the corresponding service details
-      let servicesDetails = {};
+      const servicesDetails = {};
       if (mandatoryServicesData && mandatoryServicesData.length > 0) {
         const serviceIds = mandatoryServicesData.map(item => item.mandatory_service_id).filter(Boolean);
 
@@ -9373,8 +9373,8 @@ INSTRUCTIONS:
         }
       }
 
-      let data = finalData;
-      let error = null;
+      const data = finalData;
+      const error = null;
 
       // Transform data to match expected format and handle missing fields with patient type-based rates
       const transformedData = data?.map((item, index) => {

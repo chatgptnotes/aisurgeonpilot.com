@@ -53,7 +53,7 @@ const Corporate: React.FC = () => {
     try {
       setLoading(true);
 
-      let query = supabase
+      const query = supabase
         .from('corporate')
         .select('*')
         .order('created_at', { ascending: false });
