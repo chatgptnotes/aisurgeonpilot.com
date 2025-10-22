@@ -102,7 +102,30 @@ const OpdAdmissionNotes = () => {
         const convaiWidget = document.querySelector('elevenlabs-convai');
 
         if (convaiWidget) {
-          console.log('ConvAI widget found, setting up event listeners');
+          console.log('ConvAI widget found, setting up event listeners and positioning');
+
+          // Apply positioning styles directly to the widget
+          (convaiWidget as HTMLElement).style.position = 'fixed';
+          (convaiWidget as HTMLElement).style.bottom = '120px';
+          (convaiWidget as HTMLElement).style.right = '20px';
+          (convaiWidget as HTMLElement).style.zIndex = '1000';
+
+          // Also check for any child elements that might be the actual widget
+          const widgetElements = [
+            convaiWidget.querySelector('.elevenlabs-widget'),
+            convaiWidget.querySelector('.chat-widget'),
+            convaiWidget.querySelector('[class*="widget"]'),
+            convaiWidget.shadowRoot?.querySelector('*')
+          ].filter(Boolean);
+
+          widgetElements.forEach(element => {
+            if (element) {
+              (element as HTMLElement).style.position = 'fixed';
+              (element as HTMLElement).style.bottom = '120px';
+              (element as HTMLElement).style.right = '20px';
+              (element as HTMLElement).style.zIndex = '1000';
+            }
+          });
 
           // Listen for conversation events on the widget itself
           convaiWidget.addEventListener('conversationStarted', (event: any) => {
@@ -142,12 +165,40 @@ const OpdAdmissionNotes = () => {
           setTimeout(() => {
             const retryWidget = document.querySelector('elevenlabs-convai');
             if (retryWidget) {
-              console.log('ConvAI widget found on retry');
-              // Add the same event listeners here
+              console.log('ConvAI widget found on retry, applying positioning');
+              (retryWidget as HTMLElement).style.position = 'fixed';
+              (retryWidget as HTMLElement).style.bottom = '120px';
+              (retryWidget as HTMLElement).style.right = '20px';
+              (retryWidget as HTMLElement).style.zIndex = '1000';
             }
           }, 2000);
         }
       }, 1000);
+
+      // Additional positioning check after longer delay
+      setTimeout(() => {
+        const allPossibleSelectors = [
+          'elevenlabs-convai',
+          '.elevenlabs-widget',
+          '.elevenlabs-chat-widget',
+          '.convai-widget',
+          '[class*="elevenlabs"]',
+          '[id*="elevenlabs"]'
+        ];
+
+        allPossibleSelectors.forEach(selector => {
+          const elements = document.querySelectorAll(selector);
+          elements.forEach(element => {
+            if (element && (element as HTMLElement).style) {
+              (element as HTMLElement).style.position = 'fixed';
+              (element as HTMLElement).style.bottom = '120px';
+              (element as HTMLElement).style.right = '20px';
+              (element as HTMLElement).style.zIndex = '1000';
+              console.log('Applied positioning to:', selector);
+            }
+          });
+        });
+      }, 3000);
     };
 
     script.onerror = () => {
@@ -483,6 +534,15 @@ const OpdAdmissionNotes = () => {
       return;
     }
 
+    // Check if this is a simulated conversation
+    if (conversationId.startsWith('simulated-')) {
+      toast({
+        title: "Test Summary Already Applied",
+        description: "The simulated summary has already been populated. No API fetch needed.",
+      });
+      return;
+    }
+
     setIsProcessingSummary(true);
 
     try {
@@ -569,6 +629,17 @@ const OpdAdmissionNotes = () => {
   // Function to manually trigger summary capture
   const captureCurrentSummary = () => {
     if (conversationId) {
+      // Check if this is a simulated conversation
+      if (conversationId.startsWith('simulated-')) {
+        // For simulated conversations, the summary is already captured
+        toast({
+          title: "Summary Already Applied",
+          description: "The test summary has already been populated into the form fields.",
+        });
+        return;
+      }
+
+      // For real conversations, fetch from API
       handleConversationComplete();
     } else {
       // If no conversation ID, try to simulate or provide manual input
@@ -633,6 +704,18 @@ Blood pressure monitoring
       setConversationStatus('completed');
       handleConversationComplete();
     }
+  };
+
+  // Function to reset conversation state
+  const resetConversation = () => {
+    setConversationId(null);
+    setConversationStatus('idle');
+    setAiSummary('');
+    setIsProcessingSummary(false);
+    toast({
+      title: "Conversation Reset",
+      description: "Ready for a new conversation or test.",
+    });
   };
 
   if (loading) {
@@ -790,7 +873,12 @@ Blood pressure monitoring
               {conversationStatus === 'completed' && aiSummary && (
                 <div className="mt-2">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs text-green-700 font-medium">✓ Summary Generated</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-green-700 font-medium">✓ Summary Generated</p>
+                      {conversationId?.startsWith('simulated-') && (
+                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">TEST</span>
+                      )}
+                    </div>
                     <Button
                       size="sm"
                       variant="outline"
@@ -802,6 +890,11 @@ Blood pressure monitoring
                         <>
                           <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
                           Processing...
+                        </>
+                      ) : conversationId?.startsWith('simulated-') ? (
+                        <>
+                          <Download className="h-3 w-3 mr-1" />
+                          Already Applied
                         </>
                       ) : (
                         <>
@@ -860,6 +953,14 @@ Blood pressure monitoring
                     className="h-6 px-2 text-xs bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700"
                   >
                     Debug Info
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={resetConversation}
+                    className="h-6 px-2 text-xs bg-red-50 hover:bg-red-100 border-red-200 text-red-700"
+                  >
+                    Reset
                   </Button>
                 </div>
               </div>
@@ -1381,6 +1482,32 @@ Blood pressure monitoring
             .print-two-column {
               page-break-inside: avoid !important;
             }
+          }
+
+          /* ElevenLabs Widget Positioning - Always Active */
+          elevenlabs-convai {
+            position: fixed !important;
+            bottom: 120px !important;
+            right: 20px !important;
+            z-index: 1000 !important;
+          }
+
+          /* Alternative class names that ElevenLabs might use */
+          .elevenlabs-widget,
+          .elevenlabs-chat-widget,
+          .elevenlabs-convai-widget,
+          .convai-widget {
+            position: fixed !important;
+            bottom: 120px !important;
+            right: 20px !important;
+            z-index: 1000 !important;
+          }
+
+          /* Ensure toast notifications appear above the widget */
+          .toast,
+          [data-sonner-toaster],
+          .sonner-toast {
+            z-index: 1100 !important;
           }
         `}
       </style>
