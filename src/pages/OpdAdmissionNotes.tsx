@@ -6,9 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, Printer, Loader2, FileText, Mic, Download, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Save, Printer, Loader2, FileText, Mic, Download, RefreshCw, Upload, Stethoscope } from 'lucide-react';
 import { useDebounce } from 'use-debounce';
 import { useToast } from '@/hooks/use-toast';
+import DocumentUpload, { DocumentCategory } from '@/components/DocumentUpload';
+import PatientReportsDisplay from '@/components/PatientReportsDisplay';
+import MultiConsultantNotes from '@/components/MultiConsultantNotes';
 
 interface PatientData {
   id: string;
@@ -41,6 +44,8 @@ interface OpdAdmissionNotesData {
   pathology_rbs: string;
   pathology_xray: string;
   pathology_ct_mri_usg: string;
+  pathology_other_blood: string;
+  pathology_other_investigations: string;
   stitches_removal: string;
   dressing: string;
   speciality_injectable: string;
@@ -58,6 +63,9 @@ const OpdAdmissionNotes = () => {
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
+  const [showPatientReports, setShowPatientReports] = useState(false);
+  const [useMultiConsultant, setUseMultiConsultant] = useState(false);
 
   // Voice agent conversation state
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -75,6 +83,8 @@ const OpdAdmissionNotes = () => {
     pathology_rbs: '',
     pathology_xray: '',
     pathology_ct_mri_usg: '',
+    pathology_other_blood: '',
+    pathology_other_investigations: '',
     stitches_removal: '',
     dressing: '',
     speciality_injectable: '',
@@ -373,54 +383,71 @@ const OpdAdmissionNotes = () => {
       const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
 
       if (!apiKey) {
-        throw new Error('ElevenLabs API key not configured');
+        throw new Error('ElevenLabs API key not configured. Please add VITE_ELEVENLABS_API_KEY to your environment.');
       }
 
-      console.log('Fetching conversation data for ID:', conversationId);
-      console.log('Using API Key:', apiKey ? 'API Key is set' : 'API Key is missing');
+      console.log('=== FETCH CONVERSATION START ===');
+      console.log('Conversation ID:', conversationId);
+      console.log('API Key status:', apiKey ? `Set (${apiKey.substring(0, 8)}...)` : 'Missing');
 
-      // Try multiple possible API endpoints
-      const endpoints = [
-        `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`,
-        `https://api.elevenlabs.io/v1/conversations/${conversationId}`,
-        `https://api.elevenlabs.io/v1/convai/conversation/${conversationId}`,
-      ];
+      // Use the exact endpoint specified by the user
+      const endpoint = `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`;
+      console.log('Endpoint URL:', endpoint);
 
-      let lastError = null;
+      const headers = {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
 
-      for (const endpoint of endpoints) {
+      console.log('Request headers:', headers);
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: headers,
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response statusText:', response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response body:', errorText);
+
+        let errorMessage = `HTTP ${response.status} - ${response.statusText}`;
+
         try {
-          console.log('Trying endpoint:', endpoint);
-
-          const response = await fetch(endpoint, {
-            method: 'GET',
-            headers: {
-              'xi-api-key': apiKey,
-              'Content-Type': 'application/json',
-            },
-          });
-
-          console.log('Response status:', response.status);
-          console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-          if (response.ok) {
-            const conversationData = await response.json();
-            console.log('Conversation data received:', conversationData);
-            return conversationData;
-          } else {
-            const errorText = await response.text();
-            console.error(`API Error for ${endpoint}:`, response.status, errorText);
-            lastError = `${endpoint}: ${response.status} - ${errorText}`;
-          }
-        } catch (endpointError) {
-          console.error(`Network error for ${endpoint}:`, endpointError);
-          lastError = `${endpoint}: ${endpointError.message}`;
+          const errorData = JSON.parse(errorText);
+          console.error('Parsed error data:', errorData);
+          errorMessage = errorData.detail || errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+          errorMessage = errorText || errorMessage;
         }
+
+        throw new Error(`API Error: ${errorMessage}`);
       }
 
-      throw new Error(`All API endpoints failed. Last error: ${lastError}`);
+      const responseText = await response.text();
+      console.log('Raw response text:', responseText.substring(0, 500));
+
+      let conversationData;
+      try {
+        conversationData = JSON.parse(responseText);
+        console.log('Parsed conversation data keys:', Object.keys(conversationData));
+        console.log('Full conversation data structure:', conversationData);
+      } catch (parseError) {
+        console.error('Failed to parse response JSON:', parseError);
+        throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
+      }
+
+      console.log('=== FETCH CONVERSATION SUCCESS ===');
+      return conversationData;
+
     } catch (error) {
-      console.error('Error fetching conversation data:', error);
+      console.error('=== FETCH CONVERSATION ERROR ===');
+      console.error('Error details:', error);
       throw error;
     }
   };
@@ -554,45 +581,73 @@ const OpdAdmissionNotes = () => {
 
       console.log('Full conversation data:', conversationData);
 
-      // Look for the AI summary in different possible locations
+      // Look for conversation transcript and summary in different possible locations
       let summaryContent = '';
+      let fullTranscript = '';
 
       if (conversationData) {
+        console.log('Full conversation data structure:', JSON.stringify(conversationData, null, 2));
+
+        // Check for transcript field (most common in ElevenLabs API)
+        if (conversationData.transcript) {
+          fullTranscript = conversationData.transcript;
+          summaryContent = conversationData.transcript;
+          console.log('Found transcript field:', fullTranscript);
+        }
+
         // Check for messages array
         if (conversationData.messages && Array.isArray(conversationData.messages)) {
-          // Find the last assistant message that contains a summary
+          const allMessages = conversationData.messages.map((msg: any) => {
+            const role = msg.role || msg.speaker || 'unknown';
+            const content = msg.content || msg.text || msg.message || '';
+            return `${role.toUpperCase()}: ${content}`;
+          }).join('\\n\\n');
+
+          if (allMessages) {
+            fullTranscript = allMessages;
+            if (!summaryContent) summaryContent = allMessages;
+            console.log('Found messages array, created transcript:', fullTranscript);
+          }
+
+          // Find the last assistant message for summary
           const assistantMessages = conversationData.messages.filter(
-            (msg: any) => msg.role === 'assistant' && msg.content
+            (msg: any) => (msg.role === 'assistant' || msg.speaker === 'assistant') && (msg.content || msg.text)
           );
 
           if (assistantMessages.length > 0) {
             const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
-            summaryContent = lastAssistantMessage.content;
-            console.log('Found assistant message:', summaryContent);
+            const assistantContent = lastAssistantMessage.content || lastAssistantMessage.text;
+            if (assistantContent) {
+              summaryContent = assistantContent;
+              console.log('Found assistant message for summary:', assistantContent);
+            }
           }
         }
 
-        // Alternative: Check for transcript or summary fields
-        if (!summaryContent && conversationData.transcript) {
-          summaryContent = conversationData.transcript;
-          console.log('Found transcript:', summaryContent);
-        }
-
+        // Check for other possible fields
         if (!summaryContent && conversationData.summary) {
           summaryContent = conversationData.summary;
           console.log('Found summary field:', summaryContent);
         }
 
-        // Extract summary from conversation text if needed
         if (!summaryContent && conversationData.conversation_text) {
-          // Look for structured summary in the conversation text
-          const conversationText = conversationData.conversation_text;
-          const summaryMatch = conversationText.match(/(?:summary|opd summary|consultation summary)[:\s]*([\s\S]*)/i);
+          fullTranscript = conversationData.conversation_text;
+          summaryContent = conversationData.conversation_text;
+          console.log('Found conversation_text field:', conversationData.conversation_text);
+        }
+
+        if (!summaryContent && conversationData.conversation) {
+          fullTranscript = conversationData.conversation;
+          summaryContent = conversationData.conversation;
+          console.log('Found conversation field:', conversationData.conversation);
+        }
+
+        // If we have a full transcript, extract structured summary
+        if (fullTranscript && !summaryContent.includes('DIAGNOSIS') && !summaryContent.includes('CONSULTATION')) {
+          const summaryMatch = fullTranscript.match(/(?:summary|opd summary|consultation summary|diagnosis)[:\s]*([\s\S]*)/i);
           if (summaryMatch) {
             summaryContent = summaryMatch[1].trim();
-            console.log('Extracted summary from conversation text:', summaryContent);
-          } else {
-            summaryContent = conversationText;
+            console.log('Extracted structured summary from transcript:', summaryContent);
           }
         }
       }
@@ -664,8 +719,8 @@ Patient reports frequent headaches, fatigue, and excessive thirst for the past 2
 Also experiencing blurred vision occasionally.
 
 VITALS:
-BP: 150/95 mmHg
-Pulse: 88/min
+BP: 150\\/95 mmHg
+Pulse: 88\\/min
 Temperature: 98.6°F
 Weight: 75 kg
 
@@ -697,12 +752,138 @@ Blood pressure monitoring
   };
 
   // Function to manually input conversation ID
-  const handleManualConversationId = () => {
-    const conversationIdInput = prompt('Enter the conversation ID to fetch summary from:');
-    if (conversationIdInput && conversationIdInput.trim()) {
-      setConversationId(conversationIdInput.trim());
-      setConversationStatus('completed');
-      handleConversationComplete();
+  const handleManualConversationId = async () => {
+    const conversationIdInput = prompt('Enter the conversation ID to fetch transcript:');
+    if (!conversationIdInput || !conversationIdInput.trim()) {
+      return;
+    }
+
+    const trimmedId = conversationIdInput.trim();
+    setConversationId(trimmedId);
+    setConversationStatus('active');
+    setIsProcessingSummary(true);
+
+    try {
+      console.log('Fetching conversation data for ID:', trimmedId);
+
+      // Fetch the conversation data using the exact endpoint
+      const conversationData = await fetchConversationData(trimmedId);
+
+      console.log('Raw conversation data received:', conversationData);
+
+      if (!conversationData) {
+        throw new Error('No conversation data received from the API');
+      }
+
+      // Extract transcript content from various possible fields
+      let transcriptContent = '';
+      let displayContent = '';
+
+      // First, check for ElevenLabs specific transcript array format
+      if (conversationData.transcript && Array.isArray(conversationData.transcript)) {
+        console.log('Found ElevenLabs transcript array with', conversationData.transcript.length, 'turns');
+
+        const transcriptMessages = conversationData.transcript.map((turn: any) => {
+          const role = turn.role || 'speaker';
+          const message = turn.message || turn.content || turn.text || '';
+
+          // Skip empty messages
+          if (!message || message.trim().length === 0) {
+            return '';
+          }
+
+          return `${role.toUpperCase()}: ${message}`;
+        }).filter(msg => msg.length > 0);
+
+        if (transcriptMessages.length > 0) {
+          transcriptContent = transcriptMessages.join('\n\n');
+          displayContent = transcriptContent;
+          console.log('Built transcript from ElevenLabs transcript array:', transcriptContent.substring(0, 200));
+        }
+      }
+
+      // Try different possible field names for string content
+      if (!transcriptContent) {
+        const possibleFields = [
+          'conversation_text',
+          'conversation',
+          'text',
+          'content',
+          'summary'
+        ];
+
+        for (const field of possibleFields) {
+          if (conversationData[field] && typeof conversationData[field] === 'string') {
+            transcriptContent = conversationData[field];
+            displayContent = transcriptContent;
+            console.log(`Found transcript in field '${field}':`, transcriptContent.substring(0, 200));
+            break;
+          }
+        }
+      }
+
+      // Check for generic messages array format
+      if (!transcriptContent && conversationData.messages && Array.isArray(conversationData.messages)) {
+        const messages = conversationData.messages.map((msg: any) => {
+          const role = msg.role || msg.speaker || msg.type || 'speaker';
+          const content = msg.content || msg.text || msg.message || '';
+          return `${role.toUpperCase()}: ${content}`;
+        }).filter(msg => msg.length > 10); // Filter out empty messages
+
+        if (messages.length > 0) {
+          transcriptContent = messages.join('\n\n');
+          displayContent = transcriptContent;
+          console.log('Built transcript from messages array:', transcriptContent.substring(0, 200));
+        }
+      }
+
+      // Check for nested structures
+      if (!transcriptContent && conversationData.data) {
+        console.log('Checking nested data structure:', conversationData.data);
+        for (const field of possibleFields) {
+          if (conversationData.data[field]) {
+            transcriptContent = conversationData.data[field];
+            displayContent = transcriptContent;
+            console.log(`Found transcript in data.${field}:`, transcriptContent.substring(0, 200));
+            break;
+          }
+        }
+      }
+
+      if (transcriptContent && transcriptContent.trim()) {
+        setAiSummary(displayContent);
+        setConversationStatus('completed');
+
+        // Try to parse and populate the form
+        parseAndPopulateSummary(transcriptContent);
+
+        toast({
+          title: "Transcript Fetched",
+          description: `Successfully loaded conversation transcript (${transcriptContent.length} characters)`,
+        });
+      } else {
+        console.warn('No transcript content found. Available fields:', Object.keys(conversationData));
+
+        // Show available fields for debugging
+        const availableFields = Object.keys(conversationData).join(', ');
+
+        throw new Error(`No transcript content found in response. Available fields: ${availableFields}`);
+      }
+
+    } catch (error) {
+      console.error('Error in handleManualConversationId:', error);
+      setConversationStatus('idle');
+      setConversationId(null);
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+
+      toast({
+        title: "Failed to Fetch Transcript",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingSummary(false);
     }
   };
 
@@ -716,6 +897,154 @@ Blood pressure monitoring
       title: "Conversation Reset",
       description: "Ready for a new conversation or test.",
     });
+  };
+
+  // Function to handle extracted text from document uploads
+  const handleDocumentTextExtracted = (category: DocumentCategory, extractedData: Record<string, string>) => {
+    try {
+      // Map extracted data to form fields based on category
+      const updatedFormData = { ...formData };
+
+      Object.entries(extractedData).forEach(([key, value]) => {
+        if (value && value.trim()) {
+          // Map the extracted data to the appropriate form fields
+          if (key in updatedFormData) {
+            // If the field already has content, append to it
+            const currentValue = updatedFormData[key as keyof OpdAdmissionNotesData];
+            if (currentValue && currentValue.trim()) {
+              updatedFormData[key as keyof OpdAdmissionNotesData] = `${currentValue}\n\n[From ${category} report]:\n${value}`;
+            } else {
+              updatedFormData[key as keyof OpdAdmissionNotesData] = value;
+            }
+          }
+        }
+      });
+
+      setFormData(updatedFormData);
+
+      toast({
+        title: "Document Text Extracted",
+        description: `Successfully extracted and populated data from ${category} report.`,
+      });
+
+    } catch (error) {
+      console.error('Error handling extracted text:', error);
+      toast({
+        title: "Error",
+        description: "Failed to process extracted text from document.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to handle lab result selection
+  const handleLabResultSelection = (formattedText: string, category: string) => {
+    try {
+      const updatedFormData = { ...formData };
+
+      // Determine which field to populate based on category
+      let targetField: keyof OpdAdmissionNotesData;
+
+      if (category.toLowerCase().includes('blood') || category.toLowerCase().includes('hematology')) {
+        targetField = 'pathology_other_blood';
+      } else {
+        targetField = 'pathology_rbs';
+      }
+
+      // Append to existing content
+      const currentValue = updatedFormData[targetField];
+      if (currentValue && currentValue.trim()) {
+        updatedFormData[targetField] = `${currentValue}\n\n[Lab Report - ${new Date().toLocaleDateString()}]:\n${formattedText}`;
+      } else {
+        updatedFormData[targetField] = formattedText;
+      }
+
+      setFormData(updatedFormData);
+
+    } catch (error) {
+      console.error('Error handling lab result selection:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add lab result to form.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to handle radiology result selection
+  const handleRadiologyResultSelection = (formattedText: string, category: string) => {
+    try {
+      const updatedFormData = { ...formData };
+
+      // Determine which field to populate based on category
+      let targetField: keyof OpdAdmissionNotesData;
+
+      if (category.toLowerCase().includes('x-ray') || category.toLowerCase().includes('chest')) {
+        targetField = 'pathology_xray';
+      } else if (category.toLowerCase().includes('ct') ||
+                 category.toLowerCase().includes('mri') ||
+                 category.toLowerCase().includes('usg') ||
+                 category.toLowerCase().includes('ultrasound')) {
+        targetField = 'pathology_ct_mri_usg';
+      } else {
+        targetField = 'pathology_other_investigations';
+      }
+
+      // Append to existing content
+      const currentValue = updatedFormData[targetField];
+      if (currentValue && currentValue.trim()) {
+        updatedFormData[targetField] = `${currentValue}\n\n[Radiology Report - ${new Date().toLocaleDateString()}]:\n${formattedText}`;
+      } else {
+        updatedFormData[targetField] = formattedText;
+      }
+
+      setFormData(updatedFormData);
+
+    } catch (error) {
+      console.error('Error handling radiology result selection:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add radiology result to form.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to handle multiple results selection
+  const handleMultipleResultsSelection = (labSummary: string, radiologySummary: string) => {
+    try {
+      const updatedFormData = { ...formData };
+
+      // Add lab summary to other blood reports
+      if (labSummary && labSummary.trim() !== 'No lab results available.') {
+        const currentLabValue = updatedFormData.pathology_other_blood;
+        if (currentLabValue && currentLabValue.trim()) {
+          updatedFormData.pathology_other_blood = `${currentLabValue}\n\n[Recent Lab Results Summary]:\n${labSummary}`;
+        } else {
+          updatedFormData.pathology_other_blood = labSummary;
+        }
+      }
+
+      // Add radiology summary to other investigations
+      if (radiologySummary && radiologySummary.trim() !== 'No radiology results available.') {
+        const currentRadiologyValue = updatedFormData.pathology_other_investigations;
+        if (currentRadiologyValue && currentRadiologyValue.trim()) {
+          updatedFormData.pathology_other_investigations = `${currentRadiologyValue}\n\n[Recent Radiology Results Summary]:\n${radiologySummary}`;
+        } else {
+          updatedFormData.pathology_other_investigations = radiologySummary;
+        }
+      }
+
+      setFormData(updatedFormData);
+
+    } catch (error) {
+      console.error('Error handling multiple results selection:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add results to form.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {
@@ -816,11 +1145,42 @@ Blood pressure monitoring
             <Printer className="h-4 w-4" />
             Print
           </Button>
+          <Button
+            onClick={() => setShowDocumentUpload(!showDocumentUpload)}
+            variant="outline"
+            className={`flex items-center gap-2 ${showDocumentUpload ? 'bg-blue-50 border-blue-300' : ''}`}
+          >
+            <Upload className="h-4 w-4" />
+            {showDocumentUpload ? 'Hide Upload' : 'Upload Reports'}
+          </Button>
+          <Button
+            onClick={() => setShowPatientReports(!showPatientReports)}
+            variant="outline"
+            className={`flex items-center gap-2 ${showPatientReports ? 'bg-green-50 border-green-300' : ''}`}
+          >
+            <FileText className="h-4 w-4" />
+            {showPatientReports ? 'Hide Reports' : 'Patient Reports'}
+          </Button>
+          <Button
+            onClick={() => setUseMultiConsultant(!useMultiConsultant)}
+            variant={useMultiConsultant ? "default" : "outline"}
+            className={`flex items-center gap-2 ${useMultiConsultant ? 'bg-purple-600 text-white' : 'hover:bg-purple-50'}`}
+          >
+            <Stethoscope className="h-4 w-4" />
+            {useMultiConsultant ? 'Single Consultant' : 'Multi-Consultant'}
+          </Button>
         </div>
       </div>
 
-      {/* Main Form */}
-      <Card className="shadow-lg">
+      {/* Multi-Consultant or Single Consultant Notes */}
+      {useMultiConsultant ? (
+        <MultiConsultantNotes
+          visitId={visitId || ''}
+          patientId={patientData?.patients?.id || ''}
+          className="shadow-lg"
+        />
+      ) : (
+        <Card className="shadow-lg">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 print:bg-white">
           {/* Voice Agent Widget - Hidden in print */}
           <div className="print:hidden mb-4 p-4 bg-white rounded-lg border border-blue-200 shadow-sm">
@@ -904,8 +1264,20 @@ Blood pressure monitoring
                       )}
                     </Button>
                   </div>
-                  <div className="bg-white p-2 rounded border text-xs text-gray-700 max-h-20 overflow-y-auto">
-                    {aiSummary.substring(0, 150)}...
+                  <div className="bg-white p-3 rounded border text-xs text-gray-700 max-h-32 overflow-y-auto">
+                    <div className="text-xs text-gray-500 mb-1 font-medium">
+                      Conversation Transcript (ID: {conversationId}):
+                    </div>
+                    <div className="whitespace-pre-wrap">
+                      {aiSummary.length > 300 ? aiSummary.substring(0, 300) + '...' : aiSummary}
+                    </div>
+                    {aiSummary.length > 300 && (
+                      <div className="text-xs text-blue-600 mt-1 cursor-pointer" onClick={() => {
+                        const fullText = prompt('Full Conversation Transcript:', aiSummary);
+                      }}>
+                        Click to view full transcript ({aiSummary.length} characters)
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -928,7 +1300,7 @@ Blood pressure monitoring
                     onClick={handleManualConversationId}
                     className="h-6 px-2 text-xs bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700"
                   >
-                    Manual ID Input
+                    Fetch Transcript
                   </Button>
                   <Button
                     size="sm"
@@ -978,6 +1350,39 @@ Blood pressure monitoring
               )}
             </div>
           </div>
+
+          {/* Document Upload Section */}
+          {showDocumentUpload && (
+            <div className="print:hidden mb-6 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                  <Upload className="h-5 w-5 text-blue-600" />
+                  Document Upload & AI Text Extraction
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Upload medical reports (PDFs, images) and automatically extract text to populate form fields.
+                </p>
+              </div>
+
+              <DocumentUpload
+                onTextExtracted={handleDocumentTextExtracted}
+                className="w-full"
+              />
+            </div>
+          )}
+
+          {/* Patient Reports Section */}
+          {showPatientReports && patientData?.patients?.id && (
+            <div className="print:hidden mb-6">
+              <PatientReportsDisplay
+                patientId={patientData.patients.id}
+                onSelectLabResult={handleLabResultSelection}
+                onSelectRadiologyResult={handleRadiologyResultSelection}
+                onSelectMultipleResults={handleMultipleResultsSelection}
+                className="w-full"
+              />
+            </div>
+          )}
 
           <div className="flex items-center gap-3">
             <FileText className="h-8 w-8 text-blue-600" />
@@ -1073,7 +1478,7 @@ Blood pressure monitoring
                 <Input
                   value={formData.vital_bp}
                   onChange={(e) => handleInputChange('vital_bp', e.target.value)}
-                  placeholder="e.g., BP: 120/80 mmHg, Pulse: 72/min, Temp: 98.6°F"
+                  placeholder="e.g., BP: 120\\/80 mmHg, Pulse: 72\\/min, Temp: 98.6°F"
                   className="print:border-gray-400"
                 />
               </div>
@@ -1118,6 +1523,24 @@ Blood pressure monitoring
                       onChange={(e) => handleInputChange('pathology_ct_mri_usg', e.target.value)}
                       placeholder="CT/MRI/USG details"
                       className="mt-1 print:border-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">4. Other Blood Reports</Label>
+                    <Textarea
+                      value={formData.pathology_other_blood}
+                      onChange={(e) => handleInputChange('pathology_other_blood', e.target.value)}
+                      placeholder="Other blood investigations, CBC, liver function tests, etc."
+                      className="mt-1 min-h-[80px] resize-vertical print:border-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">5. Other Investigations</Label>
+                    <Textarea
+                      value={formData.pathology_other_investigations}
+                      onChange={(e) => handleInputChange('pathology_other_investigations', e.target.value)}
+                      placeholder="Other radiology reports, ECG, Echo, etc."
+                      className="mt-1 min-h-[80px] resize-vertical print:border-gray-400"
                     />
                   </div>
                 </div>
@@ -1227,290 +1650,57 @@ Blood pressure monitoring
             </div>
           </div>
         </CardContent>
-      </Card>
+        </Card>
+      )}
 
       {/* Print Styles */}
-      <style>
-        {`
+      <style dangerouslySetInnerHTML={{
+        __html: `
           @media print {
             body {
-              print-color-adjust: exact;
-              -webkit-print-color-adjust: exact;
               font-size: 8pt;
-            }
-
-            @page {
-              size: A4;
-              margin: 0.4cm 0.5cm;
-            }
-
-            /* Hide screen elements */
-            button, .print\\:hidden {
-              display: none !important;
-            }
-
-            /* Page container */
-            .container {
-              max-width: 100%;
+              margin: 0;
               padding: 0;
             }
-
-            /* Card styling */
-            .shadow-lg {
-              box-shadow: none !important;
-              border: 2px solid #000 !important;
-              border-radius: 0 !important;
+            @page {
+              size: A4;
+              margin: 0.5cm;
             }
-
-            /* Header */
-            .bg-gradient-to-r {
-              background: white !important;
-              border-bottom: 2px solid #000;
-              padding: 4px !important;
-            }
-
-            /* Hide icon in print */
-            .bg-gradient-to-r svg {
+            .print\\:hidden,
+            button,
+            .no-print {
               display: none !important;
             }
-
-            /* Patient info box */
-            .bg-gray-50 {
-              background: white !important;
-              border: 2px solid #000 !important;
-              padding: 4px !important;
-              margin-bottom: 4px;
-              display: grid !important;
-              grid-template-columns: 1fr 1fr !important;
-              gap: 2px 10px !important;
+            .container {
+              max-width: 100% !important;
+              padding: 0 !important;
             }
-
-            /* Patient info items */
-            .bg-gray-50 > div {
-              display: block !important;
+            .shadow-lg {
+              box-shadow: none !important;
+              border: 1px solid #000 !important;
             }
-
-            .bg-gray-50 > div label {
-              font-size: 6pt !important;
-              font-weight: 600 !important;
-              color: #333 !important;
-              display: block !important;
-              margin-bottom: 0px !important;
-            }
-
-            .bg-gray-50 > div p {
-              font-size: 7pt !important;
-              color: #000 !important;
-              margin: 0 !important;
-            }
-
-            /* Section labels */
-            label {
-              font-weight: 600 !important;
-              color: #000 !important;
-              font-size: 7pt !important;
-            }
-
-            /* Textareas for print - Compact but readable */
+            input,
             textarea {
               border: 1px solid #000 !important;
-              min-height: 28px !important;
-              max-height: 32px !important;
-              background: white !important;
-              padding: 2px 4px !important;
-              font-size: 7pt !important;
-              line-height: 1.3 !important;
-              overflow: hidden !important;
-            }
-
-            /* Input fields */
-            input {
-              border: 1px solid #000 !important;
-              padding: 1px 3px !important;
               background: white !important;
               font-size: 7pt !important;
             }
-
-            /* Footer section - Clear separator */
-            .border-t-2 {
-              border-top: 2px solid #000 !important;
-              margin-top: 4px !important;
-              padding-top: 3px !important;
-            }
-
-            /* Signature line - Minimal but visible */
-            .border-b-2 {
-              border-bottom: 1px solid #000 !important;
-              height: 6px !important;
-            }
-
-            /* Footer h-6 override */
-            .h-6 {
-              height: 6px !important;
-            }
-
-            /* Text sizing for print */
-            .text-sm {
-              font-size: 7pt !important;
-            }
-
-            .text-xs {
-              font-size: 5pt !important;
-            }
-
-            /* Footer specific labels */
-            .border-t-2 .text-xs {
-              font-size: 5pt !important;
-            }
-
-            /* Footer specific text */
-            .border-t-2 .text-sm {
-              font-size: 6pt !important;
-            }
-
-            /* Card content padding */
-            .p-6 {
-              padding: 3px !important;
-            }
-
-            /* Two Column Layout - Critical for print */
-            .print-two-column {
-              display: grid !important;
-              grid-template-columns: 45% 1px 54% !important;
-              gap: 6px !important;
-              position: relative;
-              margin-top: 3px !important;
-              margin-bottom: 3px !important;
-            }
-
-            /* Left column styling */
-            .print-two-column > div:first-child {
-              padding-right: 6px !important;
-            }
-
-            /* Add vertical separator between columns - Bold visible line */
-            .print-two-column::after {
-              content: '' !important;
-              position: absolute !important;
-              left: calc(45% + 3px) !important;
-              top: 0 !important;
-              bottom: 0 !important;
-              width: 2px !important;
-              background: #000 !important;
-              border-left: 2px solid #000 !important;
-              z-index: 10 !important;
-            }
-
-            /* Right column styling */
-            .print-two-column > div:last-child {
-              padding-left: 6px !important;
-            }
-
-            /* Ensure RX textarea matches left column height */
-            .print-two-column textarea {
-              min-height: 250px !important;
-              max-height: 270px !important;
-              height: auto !important;
-              line-height: 1.4 !important;
-            }
-
-            /* Footer section - 3 columns with clear separation */
-            .grid-cols-3 {
-              display: grid !important;
-              grid-template-columns: 1fr 1fr 1fr !important;
-              gap: 8px !important;
-            }
-
-            /* Footer input in print */
-            .print\\:border-none {
-              border: none !important;
-            }
-
-            .print\\:bg-transparent {
-              background: transparent !important;
-            }
-
-            /* Remove default margins and spacing - Optimized */
-            .space-y-6 > * + * {
-              margin-top: 3px !important;
-            }
-
-            .space-y-2 > * + * {
-              margin-top: 2px !important;
-            }
-
-            .space-y-3 > * + * {
-              margin-top: 2px !important;
-            }
-
-            .space-y-1 > * + * {
-              margin-top: 1px !important;
-            }
-
-            /* Overall content spacing */
-            .space-y-6 {
-              gap: 3px !important;
-            }
-
-            /* Header title compact */
-            .bg-gradient-to-r {
-              padding: 3px !important;
-            }
-
-            /* Card title text size */
-            .text-2xl {
-              font-size: 11pt !important;
-              font-weight: bold !important;
-            }
-
-            /* Header subtitle */
-            .text-sm.text-gray-600 {
-              font-size: 7pt !important;
-            }
-
-            /* Pathology section compact */
-            .pl-4 {
-              padding-left: 8px !important;
-            }
-
-            /* Overall layout improvements */
-            .rounded-lg {
-              border-radius: 0 !important;
-            }
-
-            /* Ensure proper page breaks */
-            .print-two-column {
-              page-break-inside: avoid !important;
-            }
+            .text-xs { font-size: 6pt !important; }
+            .text-sm { font-size: 7pt !important; }
+            .text-lg { font-size: 8pt !important; }
+            .text-2xl { font-size: 10pt !important; }
           }
-
-          /* ElevenLabs Widget Positioning - Always Active */
-          elevenlabs-convai {
-            position: fixed !important;
-            bottom: 120px !important;
-            right: 20px !important;
-            z-index: 1000 !important;
-          }
-
-          /* Alternative class names that ElevenLabs might use */
+          elevenlabs-convai,
           .elevenlabs-widget,
-          .elevenlabs-chat-widget,
-          .elevenlabs-convai-widget,
           .convai-widget {
             position: fixed !important;
             bottom: 120px !important;
             right: 20px !important;
             z-index: 1000 !important;
           }
+        `
+      }} />
 
-          /* Ensure toast notifications appear above the widget */
-          .toast,
-          [data-sonner-toaster],
-          .sonner-toast {
-            z-index: 1100 !important;
-          }
-        `}
-      </style>
     </div>
   );
 };
