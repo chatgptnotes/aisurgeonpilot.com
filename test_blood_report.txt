@@ -1,0 +1,36 @@
+BLOOD INVESTIGATION REPORT
+
+Patient Name: John Doe
+Date: 23/10/2025
+Hospital: Test Hospital
+
+COMPLETE BLOOD COUNT (CBC)
+Hemoglobin: 12.5 g/dl (Normal Range: 12.0-16.0)
+RBC Count: 4.2 million/cumm (Normal Range: 4.0-5.5)
+WBC Count: 8,500 /cumm (Normal Range: 4,000-11,000)
+Platelet Count: 250,000 /cumm (Normal Range: 150,000-450,000)
+
+BLOOD CHEMISTRY
+Random Blood Sugar (RBS): 140 mg/dl (Normal Range: <140)
+HbA1c: 6.8% (Normal Range: <5.7%)
+Total Cholesterol: 220 mg/dl (Normal Range: <200)
+Triglycerides: 180 mg/dl (Normal Range: <150)
+Creatinine: 1.2 mg/dl (Normal Range: 0.6-1.2)
+Urea: 35 mg/dl (Normal Range: 15-45)
+
+LIVER FUNCTION TESTS
+Total Bilirubin: 0.8 mg/dl (Normal Range: 0.2-1.2)
+ALT (SGPT): 45 U/L (Normal Range: <40)
+AST (SGOT): 38 U/L (Normal Range: <40)
+
+INTERPRETATION:
+Slightly elevated blood sugar and HbA1c suggesting pre-diabetes.
+Cholesterol and triglycerides are elevated.
+Liver enzymes are within normal limits.
+Complete blood count shows normal values.
+
+RECOMMENDATIONS:
+1. Dietary modification with reduced carbohydrates
+2. Regular exercise
+3. Repeat fasting blood sugar after 3 months
+4. Lipid profile monitoring
