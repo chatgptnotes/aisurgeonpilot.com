@@ -1446,9 +1446,9 @@ Blood pressure monitoring
             </div>
           </div>
 
-          {/* Diagnosis */}
+          {/* conclusion */}
           <div className="space-y-2">
-            <Label className="text-lg font-semibold text-gray-800">Diagnosis</Label>
+            <Label className="text-lg font-semibold text-gray-800">conclusion</Label>
             <Textarea
               value={formData.diagnosis}
               onChange={(e) => handleInputChange('diagnosis', e.target.value)}
@@ -1483,9 +1483,9 @@ Blood pressure monitoring
                 />
               </div>
 
-              {/* Advice */}
+              {/* OPD summary */}
               <div className="space-y-2">
-                <Label className="text-lg font-semibold text-gray-800">Advice</Label>
+                <Label className="text-lg font-semibold text-gray-800">OPD summary</Label>
                 <Textarea
                   value={formData.advice}
                   onChange={(e) => handleInputChange('advice', e.target.value)}
@@ -1580,9 +1580,9 @@ Blood pressure monitoring
               </div>
             </div>
 
-            {/* Right Column: RX */}
+            {/* Right Column: conversation with patient */}
             <div className="space-y-2">
-              <Label className="text-lg font-semibold text-gray-800">RX</Label>
+              <Label className="text-lg font-semibold text-gray-800">conversation with patient</Label>
               <Textarea
                 value={formData.rx}
                 onChange={(e) => handleInputChange('rx', e.target.value)}
