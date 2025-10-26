@@ -60,9 +60,9 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+          <CardTitle className="text-2xl font-bold">AI Surgeon Pilot</CardTitle>
           <CardDescription>
-            Sign in to access hospital management system
+            Sign in to access your digital office
           </CardDescription>
         </CardHeader>
         
@@ -116,12 +116,41 @@ const LoginPage: React.FC = () => {
             </Button>
           </form>
 
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-medium text-gray-700 mb-2">Test Accounts:</p>
-            <div className="text-xs text-gray-600 space-y-1">
-              <div>Hope Hospital: <code>admin@hopehospital.com</code> / <code>admin123</code></div>
-              <div>Ayushman Hospital: <code>admin@ayushmanhospital.com</code> / <code>admin123</code></div>
+          <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded">DEV</div>
+              <p className="text-sm font-semibold text-blue-900">Development Test Account</p>
             </div>
+            <div className="bg-white p-3 rounded border border-blue-100">
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 font-medium">Email:</span>
+                  <code className="bg-gray-100 px-2 py-1 rounded text-blue-600 font-mono text-xs">
+                    admin@aisurgeonpilot.com
+                  </code>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 font-medium">Password:</span>
+                  <code className="bg-gray-100 px-2 py-1 rounded text-blue-600 font-mono text-xs">
+                    Admin@123
+                  </code>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({ email: 'admin@aisurgeonpilot.com', password: 'Admin@123' });
+                  }}
+                  className="w-full text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                >
+                  Click to auto-fill credentials
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2 italic">
+              For development and testing purposes only
+            </p>
           </div>
         </CardContent>
         
