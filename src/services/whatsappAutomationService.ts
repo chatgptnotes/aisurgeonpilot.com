@@ -9,7 +9,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
 const DOUBLETICK_API_KEY = import.meta.env.VITE_DOUBLETICK_API_KEY || 'key_8sc9MP6JpQ';
-const DOUBLETICK_API_URL = 'https://api.double tick.io/whatsapp/message/sendMessage';
+const DOUBLETICK_API_URL = 'https://api.doubletick.io/whatsapp/message/sendMessage';
 const DOUBLETICK_TEMPLATE_NAME = import.meta.env.VITE_DOUBLETICK_TEMPLATE_NAME || 'emergency_location_alert';
 
 export interface WhatsAppMessage {
