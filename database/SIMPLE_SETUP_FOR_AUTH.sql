@@ -87,8 +87,8 @@ CREATE TABLE IF NOT EXISTS public.contact_form_submissions (
     practice_name VARCHAR(255) NULL,
     specialty VARCHAR(100) NULL,
     message TEXT NOT NULL,
-    interested_in VARCHAR(100) NULL, -- 'starter', 'professional', 'enterprise', 'other'
-    status VARCHAR(50) DEFAULT 'new', -- 'new', 'contacted', 'qualified', 'converted', 'not_interested'
+    interested_in VARCHAR(100) NULL, -- Options: starter, professional, enterprise, other
+    status VARCHAR(50) DEFAULT 'new', -- Options: new, contacted, qualified, converted, not_interested
     notes TEXT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
