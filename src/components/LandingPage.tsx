@@ -12,8 +12,15 @@ const LandingPage = ({ onGetStarted, onLoginClick }: LandingPageProps) => {
       {/* Navigation Bar */}
       <nav className="absolute top-0 w-full z-10 p-6">
         <div className="flex justify-between items-center">
-          <div className="text-2xl font-bold text-blue-900">AI Surgeon Pilot</div>
-          <Button 
+          <div className="flex items-center gap-4">
+            <div className="text-2xl font-bold text-blue-900">AI Surgeon Pilot</div>
+            <div className="hidden sm:flex items-center gap-2 text-sm text-blue-800">
+              <span className="px-3 py-1 bg-blue-100/80 rounded-full font-medium">
+                Powered by Bettroi
+              </span>
+            </div>
+          </div>
+          <Button
             onClick={() => window.location.href = '/login'}
             variant="outline"
             size="sm"
@@ -183,12 +190,27 @@ const LandingPage = ({ onGetStarted, onLoginClick }: LandingPageProps) => {
         </div>
       </div>
 
-      {/* Footer with Version Info */}
-      <footer className="py-4 bg-gray-100 border-t border-gray-200">
-        <div className="container mx-auto px-6 text-center">
-          <p className="text-xs text-gray-400">
-            Version 1.3 | Last Updated: 2025-10-26
-          </p>
+      {/* Footer with Version Info and Branding */}
+      <footer className="py-8 bg-gray-100 border-t border-gray-200">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-4">
+            <p className="text-sm text-gray-700 font-medium mb-2">
+              A Product of <span className="text-blue-600 font-semibold">DRMHopes Software</span>
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              Developed by DRMHopes Software in partnership with <span className="text-blue-600 font-semibold">Bettroi</span>
+            </p>
+            <div className="flex items-center justify-center gap-6 text-xs text-gray-500">
+              <span>Version 1.4</span>
+              <span>•</span>
+              <span>Last Updated: 2025-10-26</span>
+            </div>
+          </div>
+          <div className="text-center pt-4 border-t border-gray-200">
+            <p className="text-xs text-gray-400">
+              © 2025 DRMHopes Software & Bettroi. All rights reserved.
+            </p>
+          </div>
         </div>
       </footer>
     </div>
