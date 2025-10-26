@@ -12,13 +12,14 @@ export const SidebarMenuItem = ({ item }: SidebarMenuItemProps) => {
   const location = useLocation();
 
   const handleItemClick = (route: string, event: React.MouseEvent) => {
+    event.preventDefault(); // Always prevent default to avoid full page reload
+
     // Check if Ctrl (Windows/Linux) or Cmd (Mac) is held
     if (event.ctrlKey || event.metaKey) {
       // Open in new tab with keyboard modifier
-      event.preventDefault();
       window.open(route, '_blank');
     } else {
-      // Default: Navigate in the same tab
+      // Default: Navigate in the same tab using React Router
       navigate(route);
     }
   };
