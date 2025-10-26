@@ -16,7 +16,7 @@ interface AuthContextType {
   login: (credentials: { email: string; password: string }) => Promise<boolean>;
   signup: (userData: { email: string; password: string; role: 'admin' | 'doctor' | 'nurse' | 'user'; hospitalType: HospitalType }) => Promise<{ success: boolean; error?: string }>;
   loginWithCredentials: (credentials: { username: string; password: string; hospitalType: HospitalType }) => boolean; // Keep for backward compatibility
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
   isAdmin: boolean;
   hospitalType: HospitalType | null;
@@ -56,70 +56,95 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Check for saved session on load
   useEffect(() => {
-    const savedUser = localStorage.getItem('hmis_user');
-    const hasVisitedBefore = localStorage.getItem('hmis_visited');
-    
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      // Add hospitalType if missing (for backward compatibility)
-      if (!parsedUser.hospitalType) {
-        // For backward compatibility, determine hospital type from username
-        if (parsedUser.username === 'ayushman') {
-          parsedUser.hospitalType = 'ayushman';
-          parsedUser.hospitalName = 'ayushman';
-        } else {
-          parsedUser.hospitalType = 'hope'; // default fallback
-          parsedUser.hospitalName = 'hope';
+    const checkSession = async () => {
+      // Check Supabase Auth session
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        // Fetch user profile from public.users
+        const { data: userData, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userData && !error) {
+          const user: User = {
+            id: userData.id,
+            email: userData.email,
+            username: userData.email.split('@')[0],
+            role: userData.role,
+            hospitalType: 'hope'
+          };
+          setUser(user);
+          localStorage.setItem('hmis_user', JSON.stringify(user));
+        }
+      } else {
+        // Fallback to old localStorage method for backward compatibility
+        const savedUser = localStorage.getItem('hmis_user');
+        if (savedUser) {
+          const parsedUser = JSON.parse(savedUser);
+          // Add hospitalType if missing (for backward compatibility)
+          if (!parsedUser.hospitalType) {
+            if (parsedUser.username === 'ayushman') {
+              parsedUser.hospitalType = 'ayushman';
+              parsedUser.hospitalName = 'ayushman';
+            } else {
+              parsedUser.hospitalType = 'hope';
+              parsedUser.hospitalName = 'hope';
+            }
+          }
+          if (!parsedUser.role) {
+            parsedUser.role = parsedUser.username === 'admin' ? 'admin' : 'user';
+          }
+          setUser(parsedUser);
         }
       }
-      if (!parsedUser.role) {
-        parsedUser.role = parsedUser.username === 'admin' ? 'admin' : 'user';
+
+      // Show landing page only for first-time visitors
+      const hasVisitedBefore = localStorage.getItem('hmis_visited');
+      if (hasVisitedBefore) {
+        setShowLanding(false);
       }
-      setUser(parsedUser);
-    }
-    
-    // Show landing page only for first-time visitors
-    if (hasVisitedBefore) {
-      setShowLanding(false);
-    }
+    };
+
+    checkSession();
   }, []);
 
-  // Database authentication
+  // Database authentication using Supabase Auth
   const login = async (credentials: { email: string; password: string }): Promise<boolean> => {
     try {
-      const { data, error } = await supabase
-        .from('User')
-        .select('*')
-        .eq('email', credentials.email.toLowerCase())
-        .single();
+      // First, authenticate with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: credentials.email.toLowerCase(),
+        password: credentials.password,
+      });
 
-      if (error || !data) {
-        console.error('Login error:', error);
+      if (authError || !authData.user) {
+        console.error('Auth login error:', authError);
         return false;
       }
 
-      // Check if password is hashed (new users) or plain text (existing users)
-      let isPasswordValid = false;
-      
-      if (data.password.startsWith('$2')) {
-        // Hashed password - use bcrypt compare
-        isPasswordValid = await comparePassword(credentials.password, data.password);
-      } else {
-        // Plain text password - direct comparison (for backward compatibility)
-        isPasswordValid = data.password === credentials.password;
-      }
+      // Then fetch user profile from public.users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
 
-      if (!isPasswordValid) {
-        console.error('Invalid password');
+      if (userError || !userData) {
+        console.error('User profile error:', userError);
+        // Sign out if we can't get the user profile
+        await supabase.auth.signOut();
         return false;
       }
 
       const user: User = {
-        id: data.id,
-        email: data.email,
-        username: data.email.split('@')[0], // Use email prefix as username
-        role: data.role,
-        hospitalType: data.hospital_type || 'hope'
+        id: userData.id,
+        email: userData.email,
+        username: userData.email.split('@')[0], // Use email prefix as username
+        role: userData.role,
+        hospitalType: 'hope' // Default for now
       };
 
       setUser(user);
@@ -216,7 +241,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return false;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Sign out from Supabase Auth
+    await supabase.auth.signOut();
     setUser(null);
     localStorage.removeItem('hmis_user');
     setShowHospitalSelection(false);
