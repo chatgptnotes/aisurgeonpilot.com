@@ -684,16 +684,9 @@ const LandingPage = ({ onGetStarted, onLoginClick }: LandingPageProps) => {
                   <p className="mb-6 text-blue-100">
                     Schedule a free 30-minute consultation with our team to find the perfect plan for your practice.
                   </p>
-                  <div className="space-y-3">
-                    <div className="flex items-center">
-                      <Phone className="w-5 h-5 mr-3" />
-                      <span>+91 98765 43210</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Mail className="w-5 h-5 mr-3" />
-                      <span>contact@aisurgeonpilot.com</span>
-                    </div>
-                  </div>
+                  <p className="text-white text-sm">
+                    Fill out the contact form above and our team will reach out to you within 24 hours to discuss your practice needs.
+                  </p>
                 </div>
               </div>
             </div>
@@ -735,17 +728,12 @@ const LandingPage = ({ onGetStarted, onLoginClick }: LandingPageProps) => {
             <div>
               <h4 className="font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-gray-400">
-                <li className="flex items-center">
-                  <Phone className="w-4 h-4 mr-2" />
-                  <span>+91 98765 43210</span>
-                </li>
-                <li className="flex items-center">
-                  <Mail className="w-4 h-4 mr-2" />
-                  <span>contact@aisurgeonpilot.com</span>
-                </li>
-                <li className="flex items-center">
-                  <MapPin className="w-4 h-4 mr-2" />
+                <li className="flex items-start">
+                  <MapPin className="w-4 h-4 mr-2 mt-1 flex-shrink-0" />
                   <span>India</span>
+                </li>
+                <li className="text-gray-400 text-sm mt-4">
+                  Use the contact form to get in touch with our team. We'll respond within 24 hours.
                 </li>
               </ul>
             </div>
