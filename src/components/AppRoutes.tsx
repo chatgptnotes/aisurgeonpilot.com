@@ -91,6 +91,7 @@ const Corporate = lazy(() => import("../pages/Corporate"));
 const PatientEducationManager = lazy(() => import("../pages/PatientEducationManager"));
 const PatientFollowUpDashboard = lazy(() => import("../pages/PatientFollowUpDashboard"));
 const SurgeryOptionsConfigurator = lazy(() => import("../pages/SurgeryOptionsConfigurator"));
+const WhatsAppTest = lazy(() => import("../pages/WhatsAppTest"));
 
 // Loading component
 const PageLoader = () => (
@@ -186,6 +187,7 @@ export const AppRoutes = () => {
         <Route path="/patient-education" element={<Suspense fallback={<PageLoader />}><PatientEducationManager /></Suspense>} />
         <Route path="/patient-followup" element={<Suspense fallback={<PageLoader />}><PatientFollowUpDashboard /></Suspense>} />
         <Route path="/surgery-options" element={<Suspense fallback={<PageLoader />}><SurgeryOptionsConfigurator /></Suspense>} />
+        <Route path="/whatsapp-test" element={<Suspense fallback={<PageLoader />}><WhatsAppTest /></Suspense>} />
 
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />

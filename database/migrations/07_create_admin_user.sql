@@ -33,7 +33,7 @@ INSERT INTO public.users (
     created_at,
     updated_at
 ) VALUES (
-    'YOUR_AUTH_USER_ID_HERE'::uuid,  -- Replace with actual auth user ID
+    'Aad9d006-23ea-4667-b670-67246500b228'::uuid,  -- Replace with actual auth user ID
     'admin@aisurgeonpilot.com',
     'AI Surgeon Pilot Admin',
     'admin',

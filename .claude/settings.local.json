@@ -5,7 +5,11 @@
       "Bash(npm install:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(vercel:*)",
+      "Bash(cat:*)",
+      "Read(//var/folders/2h/hkkt_6m5723fk6whtjx7pk_w0000gp/T/TemporaryItems/NSIRD_screencaptureui_fnpXMF/**)",
+      "Read(//var/folders/2h/hkkt_6m5723fk6whtjx7pk_w0000gp/T/TemporaryItems/NSIRD_screencaptureui_livZlG/**)"
     ],
     "deny": [],
     "ask": []

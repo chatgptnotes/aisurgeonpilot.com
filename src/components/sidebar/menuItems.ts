@@ -1,4 +1,4 @@
-import { BarChart3, Calendar, Users, UserPlus, Database, Activity, FileText, TestTube, Camera, Pill, MapPin, Stethoscope, UserCog, ScrollText, Calculator, Syringe, Shield, Building2, ClipboardList, ShieldCheck, Receipt, HeartHandshake, ExternalLink, UserCheck, Bed, DoorOpen, LayoutDashboard, Bot, UserSearch, ScissorsLineDashed, Sparkles } from 'lucide-react';
+import { BarChart3, Calendar, Users, UserPlus, Database, Activity, FileText, TestTube, Camera, Pill, MapPin, Stethoscope, UserCog, ScrollText, Calculator, Syringe, Shield, Building2, ClipboardList, ShieldCheck, Receipt, HeartHandshake, ExternalLink, UserCheck, Bed, DoorOpen, LayoutDashboard, Bot, UserSearch, ScissorsLineDashed, Sparkles, MessageSquare } from 'lucide-react';
 
 // AI Surgeon Pilot - AI Features (Prominently displayed at top)
 export const aiFeatures = [
@@ -18,6 +18,12 @@ export const aiFeatures = [
     title: "Surgery Options",
     url: "/surgery-options",
     icon: ScissorsLineDashed,
+    section: "ai",
+  },
+  {
+    title: "WhatsApp Test",
+    url: "/whatsapp-test",
+    icon: MessageSquare,
     section: "ai",
   },
 ];
