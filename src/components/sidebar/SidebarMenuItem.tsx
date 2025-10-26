@@ -27,8 +27,7 @@ export const SidebarMenuItem = ({ item }: SidebarMenuItemProps) => {
   return (
     <SidebarMenuItemBase key={item.title}>
       <SidebarMenuButton asChild>
-        <a
-          href={item.route}
+        <div
           className={`flex items-center justify-between w-full p-2 cursor-pointer hover:bg-accent rounded-md transition-colors gap-2 ${
             location.pathname === item.route ? 'bg-accent' : ''
           }`}
@@ -46,7 +45,7 @@ export const SidebarMenuItem = ({ item }: SidebarMenuItemProps) => {
           <div className="bg-primary/10 text-primary px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 min-w-[2rem] text-center">
             {item.count}
           </div>
-        </a>
+        </div>
       </SidebarMenuButton>
     </SidebarMenuItemBase>
   );

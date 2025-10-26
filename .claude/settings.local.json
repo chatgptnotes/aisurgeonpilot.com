@@ -9,7 +9,8 @@
       "Bash(vercel:*)",
       "Bash(cat:*)",
       "Read(//var/folders/2h/hkkt_6m5723fk6whtjx7pk_w0000gp/T/TemporaryItems/NSIRD_screencaptureui_fnpXMF/**)",
-      "Read(//var/folders/2h/hkkt_6m5723fk6whtjx7pk_w0000gp/T/TemporaryItems/NSIRD_screencaptureui_livZlG/**)"
+      "Read(//var/folders/2h/hkkt_6m5723fk6whtjx7pk_w0000gp/T/TemporaryItems/NSIRD_screencaptureui_livZlG/**)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
