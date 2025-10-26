@@ -40,7 +40,7 @@ interface SurgeryOptionWithDiagnosis extends SurgeryOption {
   diagnosis?: Diagnosis;
 }
 
-const Surgery OptionsConfigurator = () => {
+const SurgeryOptionsConfigurator = () => {
   const [options, setOptions] = useState<SurgeryOptionWithDiagnosis[]>([]);
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [loading, setLoading] = useState(true);
