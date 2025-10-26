@@ -4,27 +4,31 @@ import { BarChart3, Calendar, Users, UserPlus, Database, Activity, FileText, Tes
 export const aiFeatures = [
   {
     title: "Patient Follow-Up",
-    url: "/patient-followup",
+    route: "/patient-followup",
     icon: UserSearch,
-    section: "ai",
+    description: "Track patient journeys",
+    count: 0,
   },
   {
     title: "Patient Education",
-    url: "/patient-education",
+    route: "/patient-education",
     icon: FileText,
-    section: "ai",
+    description: "Manage educational content",
+    count: 0,
   },
   {
     title: "Surgery Options",
-    url: "/surgery-options",
+    route: "/surgery-options",
     icon: ScissorsLineDashed,
-    section: "ai",
+    description: "Configure surgery options",
+    count: 0,
   },
   {
     title: "WhatsApp Test",
-    url: "/whatsapp-test",
+    route: "/whatsapp-test",
     icon: MessageSquare,
-    section: "ai",
+    description: "Test WhatsApp API",
+    count: 0,
   },
 ];
 
