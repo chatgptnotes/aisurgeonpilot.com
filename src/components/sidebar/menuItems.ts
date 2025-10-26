@@ -1,4 +1,4 @@
-import { BarChart3, Calendar, Users, UserPlus, Database, Activity, FileText, TestTube, Camera, Pill, MapPin, Stethoscope, UserCog, ScrollText, Calculator, Syringe, Shield, Building2, ClipboardList, ShieldCheck, Receipt, HeartHandshake, ExternalLink, UserCheck, Bed, DoorOpen, LayoutDashboard } from 'lucide-react';
+import { BarChart3, Calendar, Users, UserPlus, Database, Activity, FileText, TestTube, Camera, Pill, MapPin, Stethoscope, UserCog, ScrollText, Calculator, Syringe, Shield, Building2, ClipboardList, ShieldCheck, Receipt, HeartHandshake, ExternalLink, UserCheck, Bed, DoorOpen, LayoutDashboard, Bot, UserSearch, ScissorsLineDashed } from 'lucide-react';
 
 export const menuItems = [
   {
@@ -166,6 +166,21 @@ export const menuItems = [
     title: "Corporate",
     url: "/corporate",
     icon: Building2,
+  },
+  {
+    title: "Patient Education",
+    url: "/patient-education",
+    icon: FileText,
+  },
+  {
+    title: "Patient Follow-Up",
+    url: "/patient-followup",
+    icon: UserSearch,
+  },
+  {
+    title: "Surgery Options",
+    url: "/surgery-options",
+    icon: ScissorsLineDashed,
   },
   {
     title: "Pharmacy",

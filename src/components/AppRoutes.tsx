@@ -87,6 +87,11 @@ const DischargeInvoice = lazy(() => import("../pages/DischargeInvoice"));
 const BillManagement = lazy(() => import("../pages/BillManagement"));
 const Corporate = lazy(() => import("../pages/Corporate"));
 
+// AI Patient Follow-Up System Pages
+const PatientEducationManager = lazy(() => import("../pages/PatientEducationManager"));
+const PatientFollowUpDashboard = lazy(() => import("../pages/PatientFollowUpDashboard"));
+const SurgeryOptionsConfigurator = lazy(() => import("../pages/SurgeryOptionsConfigurator"));
+
 // Loading component
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -176,6 +181,12 @@ export const AppRoutes = () => {
         <Route path="/detailed-invoice" element={<Suspense fallback={<PageLoader />}><DetailedInvoice /></Suspense>} />
         <Route path="/discharge-invoice/:visitId" element={<Suspense fallback={<PageLoader />}><DischargeInvoice /></Suspense>} />
         <Route path="/ipd-discharge-summary/:visitId" element={<Suspense fallback={<PageLoader />}><IpdDischargeSummary /></Suspense>} />
+
+        {/* AI Patient Follow-Up System Routes */}
+        <Route path="/patient-education" element={<Suspense fallback={<PageLoader />}><PatientEducationManager /></Suspense>} />
+        <Route path="/patient-followup" element={<Suspense fallback={<PageLoader />}><PatientFollowUpDashboard /></Suspense>} />
+        <Route path="/surgery-options" element={<Suspense fallback={<PageLoader />}><SurgeryOptionsConfigurator /></Suspense>} />
+
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
