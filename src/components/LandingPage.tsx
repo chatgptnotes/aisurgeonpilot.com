@@ -187,7 +187,7 @@ const LandingPage = ({ onGetStarted, onLoginClick }: LandingPageProps) => {
       <footer className="py-4 bg-gray-100 border-t border-gray-200">
         <div className="container mx-auto px-6 text-center">
           <p className="text-xs text-gray-400">
-            Version 1.1 | Last Updated: 2025-10-26
+            Version 1.2 | Last Updated: 2025-10-26
           </p>
         </div>
       </footer>
