@@ -2,7 +2,7 @@
 
 > Complete guide for setting up the Supabase database for AI Surgeon Pilot application
 
-**Version:** 1.1
+**Version:** 1.3
 **Date:** 2025-10-26
 **Database:** Supabase (PostgreSQL)
 
@@ -24,7 +24,7 @@
 
 ## Overview
 
-This database setup includes **18 core tables** for AI Surgeon Pilot:
+This database setup includes **26 core tables** for AI Surgeon Pilot:
 
 - **Authentication**: User management with role-based access
 - **Patient Management**: Patient records and visit tracking
@@ -32,6 +32,9 @@ This database setup includes **18 core tables** for AI Surgeon Pilot:
 - **Laboratory**: Lab tests and results
 - **Radiology**: Imaging procedures and reports
 - **Surgeries**: Surgical procedures tracking
+- **AI Patient Follow-Up**: Educational content, voice calls, WhatsApp automation
+- **Decision Support**: Surgery options, patient preferences, decision journey tracking
+- **Automation**: Automated patient engagement rules and workflows
 
 ---
 
@@ -73,6 +76,7 @@ Run these files **in order** in Supabase SQL Editor:
 2. migrations/02_patient_management.sql
 3. migrations/03_medical_reference_data.sql
 4. migrations/04_visit_junctions.sql
+5. migrations/05_patient_followup_ai_agents.sql
 ```
 
 ---
@@ -130,6 +134,7 @@ Located in `database/migrations/`:
 | `02_patient_management.sql` | Patient & visit management | patients, visits |
 | `03_medical_reference_data.sql` | Medical master data | diagnoses, complications, medication, medicines, referees |
 | `04_visit_junctions.sql` | Visit relationships | visit_diagnoses, visit_complications, visit_medications, visit_labs, visit_radiology, visit_surgeries, lab, radiology |
+| `05_patient_followup_ai_agents.sql` | AI patient follow-up & automation | patient_education_content, patient_education_tracking, surgery_options, patient_surgery_preferences, voice_call_logs, whatsapp_automation_log, patient_decision_journey, automation_rules |
 
 ### Master Setup File
 
@@ -295,6 +300,182 @@ Surgeries performed during visits
 
 ---
 
+### AI Patient Follow-Up Tables
+
+#### 9. patient_education_content
+
+**Purpose:** Store educational materials for patients (videos, blogs, PDFs, articles)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| title | VARCHAR(500) | Content title |
+| content_type | VARCHAR(50) | video, blog, pdf, article, infographic |
+| content_url | TEXT | URL to content |
+| content_text | TEXT | Text content for blogs/articles |
+| surgery_types | TEXT[] | Array of applicable surgery types |
+| tags | TEXT[] | Content tags for search |
+| view_count | INTEGER | Number of views |
+| is_active | BOOLEAN | Active status |
+
+**Sample Data:** Hernia surgery video, Appendicitis guide, Recovery tips
+
+---
+
+#### 10. patient_education_tracking
+
+**Purpose:** Track educational content sent to patients and engagement
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| patient_id | UUID | Foreign key to patients |
+| content_id | UUID | Foreign key to patient_education_content |
+| sent_via | VARCHAR(50) | whatsapp, email, sms, voice_call |
+| sent_date | TIMESTAMP | When content was sent |
+| opened_date | TIMESTAMP | When patient opened content |
+| engagement_score | INTEGER | 0-100 engagement score |
+
+**Purpose:** Monitor patient engagement with educational materials
+
+---
+
+#### 11. surgery_options
+
+**Purpose:** Multiple surgery options for each diagnosis with details
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| diagnosis_id | UUID | Foreign key to diagnoses |
+| surgery_name | VARCHAR(255) | Surgery name |
+| procedure_type | VARCHAR(100) | laparoscopic, open, robotic |
+| risks | TEXT[] | Array of risk factors |
+| benefits | TEXT[] | Array of benefits |
+| recovery_time_days | INTEGER | Recovery time |
+| cost_range_min | DECIMAL | Minimum cost |
+| cost_range_max | DECIMAL | Maximum cost |
+| success_rate | DECIMAL | Success percentage |
+| is_recommended | BOOLEAN | Recommended option |
+
+**Sample Data:** Laparoscopic vs Open Hernia Repair
+
+---
+
+#### 12. patient_surgery_preferences
+
+**Purpose:** Track patient's chosen surgery options and decision status
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| patient_id | UUID | Foreign key to patients |
+| visit_id | UUID | Foreign key to visits |
+| surgery_option_id | UUID | Foreign key to surgery_options |
+| preference_rank | INTEGER | 1=first choice, 2=second choice |
+| decision_status | VARCHAR(50) | considering, preferred, selected, rejected |
+| concerns | TEXT[] | Patient's concerns |
+| questions | TEXT[] | Patient's questions |
+| decided_date | DATE | Date of decision |
+
+**Purpose:** Help surgeons understand patient preferences and concerns
+
+---
+
+#### 13. voice_call_logs
+
+**Purpose:** Track AI voice agent calls to patients
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| patient_id | UUID | Foreign key to patients |
+| call_type | VARCHAR(50) | follow_up, education, reminder, survey |
+| phone_number | VARCHAR(20) | Phone number called |
+| call_date | TIMESTAMP | Call timestamp |
+| call_duration_seconds | INTEGER | Call duration |
+| call_status | VARCHAR(50) | completed, no_answer, busy, failed |
+| call_transcript | TEXT | Full call transcript |
+| sentiment_analysis | VARCHAR(50) | positive, neutral, negative |
+| key_topics | TEXT[] | Topics discussed |
+| concerns_raised | TEXT[] | Patient concerns |
+| follow_up_required | BOOLEAN | Needs follow-up |
+
+**Purpose:** Complete voice call history with AI-powered analysis
+
+---
+
+#### 14. whatsapp_automation_log
+
+**Purpose:** Track all WhatsApp messages sent via automation
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| patient_id | UUID | Foreign key to patients |
+| content_id | UUID | Foreign key to patient_education_content |
+| message_type | VARCHAR(50) | educational_content, reminder, follow_up |
+| phone_number | VARCHAR(20) | WhatsApp number |
+| sent_date | TIMESTAMP | When message was sent |
+| delivery_status | VARCHAR(50) | pending, sent, delivered, read, failed |
+| read_timestamp | TIMESTAMP | When message was read |
+| response_received | BOOLEAN | Did patient respond |
+| doubletick_message_id | VARCHAR(255) | DoubleTick API message ID |
+
+**Integration:** Uses DoubleTick WhatsApp API (key_8sc9MP6JpQ)
+
+---
+
+#### 15. patient_decision_journey
+
+**Purpose:** Track the complete decision-making timeline for each patient
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| patient_id | UUID | Foreign key to patients |
+| visit_id | UUID | Foreign key to visits |
+| initial_consultation_date | DATE | First consultation |
+| decision_deadline | DATE | Decision deadline |
+| current_stage | VARCHAR(50) | initial_consultation, education_phase, options_review, decision_making, surgery_scheduled |
+| last_contact_date | TIMESTAMP | Last contact with patient |
+| total_education_content_sent | INTEGER | Total content sent |
+| total_education_content_viewed | INTEGER | Content viewed by patient |
+| total_voice_calls | INTEGER | Number of voice calls |
+| total_whatsapp_messages | INTEGER | Number of WhatsApp messages |
+| engagement_score | INTEGER | 0-100 overall engagement |
+| final_decision | VARCHAR(50) | agreed, declined, deferred |
+
+**Purpose:** Complete patient journey from consultation to surgery decision
+
+---
+
+#### 16. automation_rules
+
+**Purpose:** Define automation rules for patient follow-up
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| rule_name | VARCHAR(255) | Rule name |
+| rule_type | VARCHAR(50) | whatsapp, voice_call, email |
+| trigger_type | VARCHAR(50) | days_after_consultation, stage_change |
+| trigger_value | INTEGER | Number of days |
+| target_stage | VARCHAR(50) | Which patient stage to target |
+| action_type | VARCHAR(50) | send_content, make_call, send_reminder |
+| message_template | TEXT | Message template with variables |
+| time_of_day | TIME | Preferred execution time |
+| is_active | BOOLEAN | Rule active status |
+
+**Sample Rules:**
+- Day 2: Send educational video
+- Day 4: Send blog article
+- Day 7: Voice call follow-up
+- Day 10: Send surgery comparison
+- Day 14: Decision reminder call
+
+---
+
 ## Sample Data
 
 ### Included Sample Data
@@ -308,6 +489,9 @@ The setup automatically inserts:
 - **2 Lab Tests** (CBC, Blood Sugar)
 - **2 Radiology Procedures** (X-Ray, CT Scan)
 - **3 Referring Doctors**
+- **4 Educational Content** (videos, blogs, PDFs)
+- **2 Surgery Options** (for Inguinal Hernia)
+- **5 Automation Rules** (patient follow-up workflow)
 
 ### Testing Credentials
 
@@ -456,6 +640,8 @@ For issues or questions:
 
 ## Version History
 
+- **v1.3** (2025-10-26): Added AI patient follow-up system (8 new tables for education, voice calls, WhatsApp automation, decision journey tracking)
+- **v1.2** (2025-10-26): Database fully integrated with new Supabase project
 - **v1.1** (2025-10-26): Initial core setup with 18 tables
 - **v1.0** (2025-10-26): Pre-release
 
