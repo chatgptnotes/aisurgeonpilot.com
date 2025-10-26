@@ -12,8 +12,8 @@ const LandingPage = ({ onGetStarted, onLoginClick }: LandingPageProps) => {
       {/* Navigation Bar */}
       <nav className="absolute top-0 w-full z-10 p-6">
         <div className="flex justify-between items-center">
-          <div className="text-2xl font-bold text-blue-900">ADAMRIT</div>
-          <Button 
+          <div className="text-2xl font-bold text-blue-900">AI Surgeon Pilot</div>
+          <Button
             onClick={() => window.location.href = '/login'}
             variant="outline"
             size="sm"
@@ -40,17 +40,17 @@ const LandingPage = ({ onGetStarted, onLoginClick }: LandingPageProps) => {
         <div className="relative z-10 container mx-auto px-6 py-20">
           <div className="max-w-4xl">
             <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
-              ADAMRIT
+              AI Surgeon Pilot
             </h1>
             <p className="text-2xl md:text-3xl text-blue-100 mb-8 font-light">
-              Where Healthcare Flows Seamlessly – Smart Systems. Healthier Outcomes
+              Your Digital Office – Convert Consultations into Commitments
             </p>
             <p className="text-lg md:text-xl text-white/90 mb-12 max-w-3xl leading-relaxed">
-              Transform your healthcare operations with our comprehensive management platform. 
-              Streamline patient care, optimize workflows, and achieve better health outcomes 
-              through intelligent automation and data-driven insights.
+              Transform second opinion patients into surgical commitments with AI-powered voice agents,
+              WhatsApp automation, and intelligent follow-ups. Stay connected with prospective patients
+              who need more information, guidance, and confidence to choose you as their surgeon.
             </p>
-            
+
           </div>
         </div>
       </div>
@@ -60,47 +60,47 @@ const LandingPage = ({ onGetStarted, onLoginClick }: LandingPageProps) => {
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Multi-Hospital Healthcare Management
+              Built for Surgeons Who Value Patient Relationships
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Supporting Hope Multi-Specialty Hospital and Ayushman Hospital with unified management solutions
+              Nurture prospective surgical patients with intelligent automation and personalized engagement
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-6">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Patient Management</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">AI Voice Agents</h3>
               <p className="text-gray-600 leading-relaxed">
-                Comprehensive patient records, visit tracking, and care coordination for optimal health outcomes
+                Natural conversations with patients exploring surgical options. Answer questions, explain procedures, and guide decision-making 24/7
               </p>
             </div>
 
             <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-6">
                 <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Clinical Workflows</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">WhatsApp Integration</h3>
               <p className="text-gray-600 leading-relaxed">
-                Streamlined processes for healthcare delivery, from admission to discharge and beyond
+                Stay connected where patients are most comfortable. Send procedure information, answer queries, and schedule consultations via WhatsApp
               </p>
             </div>
 
             <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-6">
                 <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Analytics & Reporting</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Smart Automations</h3>
               <p className="text-gray-600 leading-relaxed">
-                Data-driven insights and comprehensive reporting for informed decision-making
+                Intelligent follow-ups, appointment reminders, and personalized content delivery. Keep prospective patients engaged without manual effort
               </p>
             </div>
           </div>
@@ -121,8 +121,8 @@ const LandingPage = ({ onGetStarted, onLoginClick }: LandingPageProps) => {
                 />
                 <div className="absolute -bottom-6 -right-6 bg-blue-600 text-white p-4 rounded-xl shadow-lg">
                   <div className="text-center">
-                    <div className="text-2xl font-bold">500+</div>
-                    <div className="text-sm">Patients Served</div>
+                    <div className="text-2xl font-bold">40%</div>
+                    <div className="text-sm">Booking Increase</div>
                   </div>
                 </div>
               </div>
@@ -132,36 +132,36 @@ const LandingPage = ({ onGetStarted, onLoginClick }: LandingPageProps) => {
             <div className="lg:w-1/2">
               <div className="max-w-xl">
                 <h2 className="text-4xl font-bold text-gray-900 mb-6">
-                  Trusted by Healthcare Professionals
+                  Trusted by Leading Surgeons
                 </h2>
                 <blockquote className="text-xl text-gray-700 mb-8 italic leading-relaxed">
-                  "ADAMRIT has revolutionized how we manage patient care. The seamless integration 
-                  of clinical workflows and intelligent analytics has significantly improved our 
-                  efficiency and patient outcomes."
+                  "AI Surgeon Pilot transformed my practice. Second opinion patients used to slip away,
+                  but now the voice agent answers their questions anytime, and WhatsApp automation keeps
+                  them engaged. My surgical bookings increased by 40% in just 3 months."
                 </blockquote>
                 <div className="border-l-4 border-blue-600 pl-6">
-                  <div className="font-semibold text-gray-900 text-lg">Dr. Sarah Johnson</div>
-                  <div className="text-blue-600 font-medium">Chief Medical Officer</div>
-                  <div className="text-gray-600">ESIC Medical Center</div>
+                  <div className="font-semibold text-gray-900 text-lg">Dr. Rajesh Sharma</div>
+                  <div className="text-blue-600 font-medium">Senior Consultant Surgeon</div>
+                  <div className="text-gray-600">Hope Multi-Specialty Hospital</div>
                 </div>
-                
+
                 {/* Key Benefits */}
                 <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex items-center">
                     <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
-                    <span className="text-gray-700">Reduced paperwork by 80%</span>
+                    <span className="text-gray-700">40% increase in surgical bookings</span>
                   </div>
                   <div className="flex items-center">
                     <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
-                    <span className="text-gray-700">Faster patient processing</span>
+                    <span className="text-gray-700">24/7 patient engagement</span>
                   </div>
                   <div className="flex items-center">
                     <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
-                    <span className="text-gray-700">Improved care coordination</span>
+                    <span className="text-gray-700">Automated follow-ups</span>
                   </div>
                   <div className="flex items-center">
                     <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
-                    <span className="text-gray-700">Better health outcomes</span>
+                    <span className="text-gray-700">Higher patient confidence</span>
                   </div>
                 </div>
               </div>
